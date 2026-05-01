@@ -1,95 +1,107 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { getTourReady, setTourReady } from "../shared/tourReadiness";
 import { TourTarget, useTour } from "../tour";
 
-const TourDemo = () => {
+const HomeScreen = () => {
   const { startTour } = useTour();
 
   const handleStartTour = () => {
+    setTourReady("details.loaded", false);
+
     startTour([
       {
+        id: "home.start",
         target: "home.startButton",
-        title: "Welcome to the Inventory Dashboard!",
+        title: "Welcome",
         description:
-          "This tour will guide you through the key features of this screen.",
-        placement: "top",
-      },
-      {
-        target: "home.button3",
-        title: "Another button",
-        description:
-          "This button doesn't do anything, but it serves as an example of a target outside the scroll view.",
-        placement: "top",
-      },
-      {
-        target: "home.item.8",
-        title: "Near item (short scroll)",
-        description:
-          "This item is close, so the tour performs a short auto-scroll.",
+          "Start here whenever you want a quick walkthrough of the product screens.",
         placement: "bottom",
+        route: "/",
       },
       {
-        target: "home.item.24",
-        title: "Far item (long scroll)",
+        id: "home.stats",
+        target: "home.statsCard",
+        title: "Live Snapshot",
         description:
-          "This one starts far below the viewport, so the tour auto-scrolls much farther.",
+          "This card shows current performance and status at a glance.",
         placement: "bottom",
+        route: "/",
+      },
+      {
+        id: "details.cta",
+        target: "details.primaryCta",
+        title: "Cross-screen Tour",
+        description:
+          "The tour moves to Details and waits for the screen to finish loading.",
+        placement: "top",
+        route: "/details",
+        readiness: {
+          timeoutMs: 8000,
+          isReady: () => getTourReady("details.loaded"),
+        },
+      },
+      {
+        id: "home.quickAction",
+        target: "home.quickAction",
+        title: "Back on Home",
+        description:
+          "This final step returns to Home and highlights a primary quick action.",
+        placement: "top",
+        route: "/",
+      },
+      {
+        id: "profile.cta",
+        target: "profile.cta",
+        title: "Profile Screen",
+        description: "Tours can target any screen, like this one on Profile.",
+        placement: "top",
+        route: "/profile",
       },
     ]);
   };
 
-  const items = Array.from({ length: 30 }, (_, index) => index + 1);
-
-  const renderItem = (itemNumber: number) => {
-    const id = `home.item.${itemNumber}`;
-    const content = (
-      <View style={styles.itemCard}>
-        <Text style={styles.itemTitle}>Inventory Item #{itemNumber}</Text>
-        <Text style={styles.itemMeta}>SKU-{1000 + itemNumber}</Text>
-      </View>
-    );
-
-    if (itemNumber === 8 || itemNumber === 24) {
-      return (
-        <TourTarget
-          key={id}
-          id={id}
-        >
-          {content}
-        </TourTarget>
-      );
-    }
-
-    return <View key={id}>{content}</View>;
-  };
-
   return (
     <View style={styles.screen}>
-      <Text style={styles.heading}>Inventory Dashboard</Text>
+      <Text style={styles.heading}>Operations Dashboard</Text>
+      <Text style={styles.subheading}>
+        Track inventory health across your locations.
+      </Text>
 
       <TourTarget id="home.startButton">
         <Pressable
-          style={styles.startButton}
+          style={styles.primaryButton}
           onPress={handleStartTour}
         >
-          <Text style={styles.startButtonText}>Start Tour</Text>
+          <Text style={styles.primaryButtonText}>Start Tour</Text>
         </Pressable>
       </TourTarget>
 
-      <Pressable style={styles.startButton}>
-        <Text style={styles.startButtonText}>button 2</Text>
-      </Pressable>
-
-      <TourTarget id="home.button3">
-        <Pressable style={styles.startButton}>
-          <Text style={styles.startButtonText}>button 3</Text>
-        </Pressable>
+      <TourTarget id="home.statsCard">
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Today</Text>
+          <Text style={styles.cardValue}>124 Orders</Text>
+          <Text style={styles.cardMeta}>Fulfillment rate: 97.4%</Text>
+        </View>
       </TourTarget>
 
-      <ScrollView>
-        <View style={styles.listContent}>{items.map(renderItem)}</View>
-      </ScrollView>
+      <View style={styles.row}>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>Low Stock</Text>
+          <Text style={styles.cardValue}>8 Items</Text>
+        </View>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>Pending</Text>
+          <Text style={styles.cardValue}>14 Requests</Text>
+        </View>
+      </View>
+
+      <TourTarget id="home.quickAction">
+        <Pressable style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Create Restock Request</Text>
+        </Pressable>
+      </TourTarget>
     </View>
   );
 };
@@ -97,51 +109,78 @@ const TourDemo = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingTop: 80,
+    paddingTop: 96,
     paddingHorizontal: 20,
     backgroundColor: "#f8fafc",
   },
   heading: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 24,
     color: "#0f172a",
+    fontSize: 30,
+    fontWeight: "800",
+    marginBottom: 6,
   },
-  startButton: {
+  subheading: {
+    color: "#475569",
+    fontSize: 16,
+    marginBottom: 22,
+  },
+  primaryButton: {
     height: 52,
-    borderRadius: 18,
+    borderRadius: 14,
     backgroundColor: "#0f172a",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
-    marginBottom: 40,
+    marginBottom: 16,
   },
-  startButtonText: {
+  primaryButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
-  listContent: {
-    paddingBottom: 40,
-  },
-  itemCard: {
+  card: {
     backgroundColor: "#fff",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  itemTitle: {
-    color: "#0f172a",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  itemMeta: {
+  cardLabel: {
     color: "#64748b",
     fontSize: 13,
+    marginBottom: 8,
+  },
+  cardValue: {
+    color: "#0f172a",
+    fontSize: 24,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  cardMeta: {
+    color: "#475569",
+    fontSize: 14,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  halfCard: {
+    flex: 1,
+  },
+  secondaryButton: {
+    marginTop: "auto",
+    marginBottom: 20,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonText: {
+    color: "#0f172a",
+    fontWeight: "700",
+    fontSize: 15,
   },
 });
 
-export default TourDemo;
+export default HomeScreen;

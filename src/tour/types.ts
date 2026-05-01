@@ -2,13 +2,51 @@ import { ReactNode } from "react";
 import { LayoutRectangle } from "react-native";
 
 export type Placement = "top" | "bottom" | "left" | "right" | "auto";
+export type TourDirection = "forward" | "back";
+export type NavigationMode = "push" | "replace" | "back";
+
+export type TourRouteParams = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
+export type TourRouteRef =
+  | string
+  | {
+      pathname: string;
+      params?: TourRouteParams;
+    };
+
+export type WaitForContext = {
+  stepId: string;
+  direction: TourDirection;
+  signal: AbortSignal;
+};
+
+export type WaitForPredicate = () => boolean;
+export type WaitForAsync = (ctx: WaitForContext) => Promise<void>;
+
+export type WaitForConfig = {
+  delayMs?: number;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  isReady?: WaitForPredicate;
+  waitFor?: WaitForAsync;
+};
 
 export type TourStep = {
+  id?: string;
   target: string;
   title: string;
   description?: string;
   placement?: Placement;
   allowInteractionWithTarget?: boolean;
+  route?: TourRouteRef;
+  navigationMode?: NavigationMode;
+  allowBackNavigation?: boolean;
+  readiness?: WaitForConfig;
+  scrollToTarget?: boolean;
+  skippable?: boolean;
 };
 
 export type TourTargetHandle = {
@@ -54,6 +92,10 @@ export type TourLifecycle = {
   onFinish?: () => void;
   onSkip?: () => void;
   onStop?: () => void;
+  onBeforeRouteChange?: (ctx: RouteChangeContext) => void;
+  onAfterRouteChange?: (ctx: RouteChangeContext) => void;
+  onWaitingForReadiness?: (step: TourStep) => void;
+  onStepFailed?: (ctx: TourFailureContext) => void;
 };
 
 export type SpotlightShape =
@@ -61,3 +103,78 @@ export type SpotlightShape =
   | "rounded-rectangle"
   | "circle"
   | "oval";
+
+export type TourStartOptions = {
+  startAtStepId?: string;
+  startAtIndex?: number;
+  suppressPrompt?: boolean;
+};
+
+export type TourFailureReason =
+  | "target_not_found"
+  | "route_navigation_failed"
+  | "route_mismatch"
+  | "readiness_timeout"
+  | "readiness_rejected"
+  | "aborted";
+
+export type TourFailureContext = {
+  step: TourStep;
+  direction: TourDirection;
+  reason: TourFailureReason;
+  error?: unknown;
+};
+
+export type RouteChangeContext = {
+  from: TourRouteRef | null;
+  to: TourRouteRef;
+  direction: TourDirection;
+  step: TourStep;
+};
+
+export type TourFailureStrategy = "stop" | "skip" | "retry";
+
+export type TourEngineConfig = {
+  defaultReadiness?: Required<
+    Pick<WaitForConfig, "timeoutMs" | "pollIntervalMs">
+  > &
+    Omit<WaitForConfig, "timeoutMs" | "pollIntervalMs">;
+  onFailure?:
+    | TourFailureStrategy
+    | ((ctx: TourFailureContext) => TourFailureStrategy);
+};
+
+export type NavigateArgs = {
+  to: TourRouteRef;
+  mode?: NavigationMode;
+};
+
+export type NavigationAdapter = {
+  getCurrentRoute: () => TourRouteRef | null;
+  navigate: (args: NavigateArgs) => void | Promise<void>;
+  back?: () => void | Promise<void>;
+  waitForRoute: (to: TourRouteRef, signal: AbortSignal) => Promise<void>;
+};
+
+export type ExpoRouterAdapterOptions = {
+  waitForRouteTimeoutMs?: number;
+  compare?: (
+    current: TourRouteRef | null,
+    target: TourRouteRef,
+  ) => boolean;
+};
+
+export type TourControllerState = {
+  isRunning: boolean;
+  activeStepIndex: number | null;
+  activeStep: TourStep | null;
+};
+
+export type TourController = {
+  startTour: (steps: TourStep[], options?: TourStartOptions) => void;
+  stopTour: () => void;
+  nextStep: () => Promise<void>;
+  previousStep: () => Promise<void>;
+  goToStep: (idOrIndex: string | number) => Promise<void>;
+  getState: () => TourControllerState;
+};

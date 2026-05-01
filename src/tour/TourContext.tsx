@@ -21,26 +21,33 @@ import { DefaultTourTooltip } from "./DefaultTourTooltip";
 import { buildSpotlightPath, getScreenSize, getTooltipPosition } from "./geometry";
 import { TourPrompt } from "./TourPrompt";
 import {
+  NavigationAdapter,
+  RouteChangeContext,
   SpotlightShape,
   TourButtonColors,
+  TourController,
+  TourControllerState,
+  TourDirection,
+  TourEngineConfig,
+  TourFailureContext,
+  TourFailureReason,
+  TourFailureStrategy,
   TourLifecycle,
+  TourRouteRef,
+  TourStartOptions,
   TourStep,
   TourTooltipRenderProps,
   TourTooltipRenderer,
+  WaitForConfig,
 } from "./types";
 
 type RegisteredTarget = {
   ref: RefObject<View | null>;
 };
 
-type TourContextValue = {
-  registerTarget: (
-    id: string,
-    ref: RefObject<View | null>,
-  ) => void;
+type TourContextValue = TourController & {
+  registerTarget: (id: string, ref: RefObject<View | null>) => void;
   unregisterTarget: (id: string) => void;
-  startTour: (steps: TourStep[]) => void;
-  stopTour: () => void;
 };
 
 export const TourContext = createContext<TourContextValue | null>(null);
@@ -62,6 +69,9 @@ type TourProviderProps = {
   onFinish?: TourLifecycle["onFinish"];
   onSkip?: TourLifecycle["onSkip"];
   onStop?: TourLifecycle["onStop"];
+  lifecycle?: TourLifecycle;
+  navigation?: NavigationAdapter;
+  engine?: TourEngineConfig;
 };
 
 const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
@@ -69,6 +79,11 @@ const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
   primaryText: "#fff",
   secondaryBackground: "#e2e8f0",
   secondaryText: "#0f172a",
+};
+
+const DEFAULT_WAIT: Required<Pick<WaitForConfig, "timeoutMs" | "pollIntervalMs">> = {
+  timeoutMs: 10_000,
+  pollIntervalMs: 50,
 };
 
 const measureTarget = (ref: RefObject<View | null>) => {
@@ -82,6 +97,57 @@ const measureTarget = (ref: RefObject<View | null>) => {
       resolve({ x, y, width, height });
     });
   });
+};
+
+const sleep = (ms: number, signal?: AbortSignal) => {
+  if (ms <= 0) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error("aborted"));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
+        reject(new Error("aborted"));
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  });
+};
+
+const routeKey = (route: TourRouteRef | null | undefined) => {
+  if (!route) return "";
+  if (typeof route === "string") return route;
+
+  const params = route.params ?? {};
+  const sorted = Object.keys(params)
+    .sort()
+    .reduce<Record<string, string | number | boolean | null | undefined>>((acc, key) => {
+      acc[key] = params[key];
+      return acc;
+    }, {});
+
+  return `${route.pathname}:${JSON.stringify(sorted)}`;
+};
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs?: number, label = "timeout") => {
+  if (!timeoutMs || timeoutMs <= 0) return promise;
+
+  return await Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(label)), timeoutMs);
+    }),
+  ]);
 };
 
 export const TourProvider = ({
@@ -101,6 +167,9 @@ export const TourProvider = ({
   onFinish,
   onSkip,
   onStop,
+  lifecycle,
+  navigation,
+  engine,
 }: TourProviderProps) => {
   const { width: screenWidth, height: screenHeight } = getScreenSize();
   const targetsRef = useRef<Map<string, RegisteredTarget>>(new Map());
@@ -108,114 +177,355 @@ export const TourProvider = ({
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
   const safeSpotlightPadding = Math.max(0, spotlightPadding);
   const clampedOverlayOpacity = Math.max(0, Math.min(overlayOpacity, 1));
-  const resolvedOverlayColor =
-    overlayColor ?? `rgba(0,0,0,${clampedOverlayOpacity})`;
+  const resolvedOverlayColor = overlayColor ?? `rgba(0,0,0,${clampedOverlayOpacity})`;
+
+  const lifecycleCallbacks: TourLifecycle = {
+    onStart,
+    onStepChange,
+    onFinish,
+    onSkip,
+    onStop,
+    ...lifecycle,
+  };
 
   const [showPrompt, setShowPrompt] = useState(false);
   const [steps, setSteps] = useState<TourStep[]>([]);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [targetLayout, setTargetLayout] = useState<LayoutRectangle | null>(null);
 
-  const registerTarget = useCallback(
-    (id: string, ref: RefObject<View | null>) => {
-      targetsRef.current.set(id, {
-        ref,
-      });
+  const stepsRef = useRef<TourStep[]>([]);
+  const activeStepIndexRef = useRef<number | null>(null);
+  const pendingControllerRef = useRef<AbortController | null>(null);
+
+  const resolveFailureStrategy = useCallback(
+    (ctx: TourFailureContext): TourFailureStrategy => {
+      if (!engine?.onFailure) return "stop";
+      return typeof engine.onFailure === "function" ? engine.onFailure(ctx) : engine.onFailure;
+    },
+    [engine?.onFailure],
+  );
+
+  const stopTour = useCallback(
+    (reason: "stop" | "skip" | "finish" | "internal" = "stop") => {
+      pendingControllerRef.current?.abort();
+      pendingControllerRef.current = null;
+
+      if (reason === "finish") lifecycleCallbacks.onFinish?.();
+      if (reason === "skip") lifecycleCallbacks.onSkip?.();
+      if (reason === "stop") lifecycleCallbacks.onStop?.();
+
+      setActiveStepIndex(null);
+      activeStepIndexRef.current = null;
+      setTargetLayout(null);
+      setSteps([]);
+      stepsRef.current = [];
+      setShowPrompt(false);
+    },
+    [lifecycleCallbacks],
+  );
+
+  const waitForTargetRegistration = useCallback(
+    async (
+      targetId: string,
+      signal: AbortSignal,
+      timeoutMs: number,
+      pollIntervalMs: number,
+    ): Promise<RegisteredTarget> => {
+      const startedAt = Date.now();
+
+      while (true) {
+        if (signal.aborted) throw new Error("aborted");
+
+        const target = targetsRef.current.get(targetId);
+        if (target?.ref.current) return target;
+
+        if (Date.now() - startedAt >= timeoutMs) {
+          throw new Error("target_not_found");
+        }
+
+        await sleep(pollIntervalMs, signal);
+      }
     },
     [],
   );
 
-  const unregisterTarget = useCallback((id: string) => {
-    targetsRef.current.delete(id);
-  }, []);
+  const waitForReadiness = useCallback(
+    async (step: TourStep, direction: TourDirection, signal: AbortSignal) => {
+      const defaults = { ...DEFAULT_WAIT, ...(engine?.defaultReadiness ?? {}) };
+      const readiness = { ...defaults, ...(step.readiness ?? {}) };
+      const timeoutMs = readiness.timeoutMs;
+      const pollIntervalMs = readiness.pollIntervalMs;
 
-  const stopTour = useCallback(
-    (reason: "stop" | "skip" | "finish" | "internal" = "stop") => {
-      if (reason === "finish") onFinish?.();
-      if (reason === "skip") onSkip?.();
-      if (reason === "stop") onStop?.();
+      lifecycleCallbacks.onWaitingForReadiness?.(step);
 
-      setActiveStepIndex(null);
-      setTargetLayout(null);
-      setSteps([]);
-      setShowPrompt(false);
+      if (readiness.delayMs && readiness.delayMs > 0) {
+        await sleep(readiness.delayMs, signal);
+      }
+
+      if (readiness.isReady) {
+        const startedAt = Date.now();
+
+        while (!readiness.isReady()) {
+          if (signal.aborted) throw new Error("aborted");
+          if (Date.now() - startedAt >= timeoutMs) {
+            throw new Error("readiness_timeout");
+          }
+          await sleep(pollIntervalMs, signal);
+        }
+      }
+
+      if (readiness.waitFor) {
+        await withTimeout(
+          readiness.waitFor({
+            stepId: step.id ?? step.target,
+            direction,
+            signal,
+          }),
+          timeoutMs,
+          "readiness_timeout",
+        );
+      }
     },
-    [onFinish, onSkip, onStop],
+    [engine?.defaultReadiness, lifecycleCallbacks],
   );
 
-  const goToStep = useCallback(
-    async (index: number) => {
-      const step = steps[index];
+  const maybeNavigateToStepRoute = useCallback(
+    async (step: TourStep, direction: TourDirection, signal: AbortSignal) => {
+      if (!navigation || !step.route) return;
+
+      const current = navigation.getCurrentRoute();
+      if (routeKey(current) === routeKey(step.route)) return;
+
+      const routeCtx: RouteChangeContext = {
+        from: current,
+        to: step.route,
+        direction,
+        step,
+      };
+
+      lifecycleCallbacks.onBeforeRouteChange?.(routeCtx);
+
+      try {
+        if (
+          direction === "back" &&
+          step.navigationMode === "back" &&
+          step.allowBackNavigation !== false &&
+          navigation.back
+        ) {
+          await navigation.back();
+        } else {
+          await navigation.navigate({
+            to: step.route,
+            mode: step.navigationMode,
+          });
+        }
+
+        await navigation.waitForRoute(step.route, signal);
+      } catch (error) {
+        throw new Error(`route_navigation_failed:${String(error)}`);
+      }
+
+      lifecycleCallbacks.onAfterRouteChange?.(routeCtx);
+    },
+    [lifecycleCallbacks, navigation],
+  );
+
+  const moveToStep = useCallback(
+    async (index: number, direction: TourDirection, attempt = 0) => {
+      const tourSteps = stepsRef.current;
+      const step = tourSteps[index];
       if (!step) {
         stopTour("internal");
         return;
       }
 
-      const target = targetsRef.current.get(step.target);
-      if (!target) {
-        console.warn(`[Tour] target not registered: ${step.target}`);
-        stopTour("internal");
-        return;
-      }
+      pendingControllerRef.current?.abort();
+      const controller = new AbortController();
+      pendingControllerRef.current = controller;
+
+      setActiveStepIndex(null);
+      setTargetLayout(null);
+
+      const defaults = { ...DEFAULT_WAIT, ...(engine?.defaultReadiness ?? {}) };
 
       try {
+        await maybeNavigateToStepRoute(step, direction, controller.signal);
+        await waitForReadiness(step, direction, controller.signal);
+
+        const target = await waitForTargetRegistration(
+          step.target,
+          controller.signal,
+          (step.readiness?.timeoutMs ?? defaults.timeoutMs) ?? DEFAULT_WAIT.timeoutMs,
+          (step.readiness?.pollIntervalMs ?? defaults.pollIntervalMs) ??
+            DEFAULT_WAIT.pollIntervalMs,
+        );
+
         const layout = await measureTarget(target.ref);
+
+        if (controller.signal.aborted) throw new Error("aborted");
+
         setTargetLayout(layout);
         setActiveStepIndex(index);
-        onStepChange?.(step, index);
+        activeStepIndexRef.current = index;
+        lifecycleCallbacks.onStepChange?.(step, index);
       } catch (error) {
-        console.warn("[Tour] Could not measure target:", error);
+        if (controller.signal.aborted) return;
+
+        const message = error instanceof Error ? error.message : String(error);
+        let reason: TourFailureReason = "readiness_rejected";
+
+        if (message.includes("target_not_found")) reason = "target_not_found";
+        else if (message.includes("route_navigation_failed")) reason = "route_navigation_failed";
+        else if (message.includes("readiness_timeout")) reason = "readiness_timeout";
+        else if (message.includes("aborted")) reason = "aborted";
+
+        const failureContext: TourFailureContext = {
+          step,
+          direction,
+          reason,
+          error,
+        };
+
+        // Navigation + mount timing can be briefly inconsistent across screens.
+        // Retry transient failures once before applying configured failure strategy.
+        if (
+          attempt < 1 &&
+          (reason === "route_navigation_failed" || reason === "target_not_found")
+        ) {
+          await sleep(120);
+          await moveToStep(index, direction, attempt + 1);
+          return;
+        }
+
+        lifecycleCallbacks.onStepFailed?.(failureContext);
+        const strategy = resolveFailureStrategy(failureContext);
+
+        if (strategy === "retry" && attempt < 1) {
+          await moveToStep(index, direction, attempt + 1);
+          return;
+        }
+
+        if (strategy === "skip") {
+          if (direction === "back") {
+            const previousIndex = index - 1;
+            if (previousIndex < 0) {
+              stopTour("stop");
+              return;
+            }
+            await moveToStep(previousIndex, "back");
+            return;
+          }
+
+          const nextIndex = index + 1;
+          if (nextIndex >= tourSteps.length) {
+            stopTour("finish");
+            return;
+          }
+          await moveToStep(nextIndex, "forward");
+          return;
+        }
+
         stopTour("internal");
       }
     },
-    [onStepChange, steps, stopTour],
+    [
+      engine?.defaultReadiness,
+      lifecycleCallbacks,
+      maybeNavigateToStepRoute,
+      resolveFailureStrategy,
+      stopTour,
+      waitForReadiness,
+      waitForTargetRegistration,
+    ],
   );
 
   const beginTour = useCallback(async () => {
-    onStart?.(steps);
+    lifecycleCallbacks.onStart?.(stepsRef.current);
     setShowPrompt(false);
-    await goToStep(0);
-  }, [goToStep, onStart, steps]);
+    await moveToStep(0, "forward");
+  }, [lifecycleCallbacks, moveToStep]);
 
-  const startTour = useCallback((newSteps: TourStep[]) => {
+  const startTour = useCallback((newSteps: TourStep[], options?: TourStartOptions) => {
     if (!newSteps.length) return;
+
     setSteps(newSteps);
-    setShowPrompt(true);
+    stepsRef.current = newSteps;
     setActiveStepIndex(null);
+    activeStepIndexRef.current = null;
     setTargetLayout(null);
-  }, []);
+
+    if (options?.suppressPrompt) {
+      setShowPrompt(false);
+      const startIndex = options.startAtStepId
+        ? Math.max(
+            0,
+            newSteps.findIndex((step) => (step.id ?? step.target) === options.startAtStepId),
+          )
+        : (options?.startAtIndex ?? 0);
+      void moveToStep(startIndex, "forward");
+      return;
+    }
+
+    setShowPrompt(true);
+  }, [moveToStep]);
 
   const nextStep = useCallback(async () => {
-    if (activeStepIndex === null) return;
-    const nextIndex = activeStepIndex + 1;
-    if (nextIndex >= steps.length) {
+    const current = activeStepIndexRef.current;
+    if (current === null) return;
+    const nextIndex = current + 1;
+    if (nextIndex >= stepsRef.current.length) {
       stopTour("finish");
       return;
     }
-    await goToStep(nextIndex);
-  }, [activeStepIndex, goToStep, steps.length, stopTour]);
+    await moveToStep(nextIndex, "forward");
+  }, [moveToStep, stopTour]);
 
   const previousStep = useCallback(async () => {
-    if (activeStepIndex === null) return;
-    const previousIndex = activeStepIndex - 1;
+    const current = activeStepIndexRef.current;
+    if (current === null) return;
+    const previousIndex = current - 1;
     if (previousIndex < 0) return;
-    await goToStep(previousIndex);
-  }, [activeStepIndex, goToStep]);
+    await moveToStep(previousIndex, "back");
+  }, [moveToStep]);
+
+  const goToStep = useCallback(
+    async (idOrIndex: string | number) => {
+      const index =
+        typeof idOrIndex === "number"
+          ? idOrIndex
+          : stepsRef.current.findIndex((step) => (step.id ?? step.target) === idOrIndex);
+
+      if (index < 0 || index >= stepsRef.current.length) return;
+
+      const current = activeStepIndexRef.current;
+      const direction: TourDirection = current !== null && index < current ? "back" : "forward";
+      await moveToStep(index, direction);
+    },
+    [moveToStep],
+  );
+
+  const getState = useCallback((): TourControllerState => {
+    const currentIndex = activeStepIndexRef.current;
+    const currentStep =
+      currentIndex !== null && stepsRef.current[currentIndex]
+        ? stepsRef.current[currentIndex]
+        : null;
+
+    return {
+      isRunning: currentIndex !== null || showPrompt,
+      activeStepIndex: currentIndex,
+      activeStep: currentStep,
+    };
+  }, [showPrompt]);
 
   const activeStep =
-    activeStepIndex !== null && steps[activeStepIndex]
-      ? steps[activeStepIndex]
-      : null;
+    activeStepIndex !== null && steps[activeStepIndex] ? steps[activeStepIndex] : null;
 
   const tooltipPosition =
-    activeStep && targetLayout
-      ? getTooltipPosition(targetLayout, activeStep.placement)
-      : null;
+    activeStep && targetLayout ? getTooltipPosition(targetLayout, activeStep.placement) : null;
 
-  const spotlightTop =
-    targetLayout !== null ? targetLayout.y - safeSpotlightPadding : 0;
-  const spotlightLeft =
-    targetLayout !== null ? targetLayout.x - safeSpotlightPadding : 0;
+  const spotlightTop = targetLayout !== null ? targetLayout.y - safeSpotlightPadding : 0;
+  const spotlightLeft = targetLayout !== null ? targetLayout.x - safeSpotlightPadding : 0;
   const spotlightWidth =
     targetLayout !== null ? targetLayout.width + safeSpotlightPadding * 2 : 0;
   const spotlightHeight =
@@ -261,17 +571,20 @@ export const TourProvider = ({
 
   const contextValue = useMemo(
     () => ({
-      registerTarget,
-      unregisterTarget,
+      registerTarget: (id: string, ref: RefObject<View | null>) => {
+        targetsRef.current.set(id, { ref });
+      },
+      unregisterTarget: (id: string) => {
+        targetsRef.current.delete(id);
+      },
       startTour,
       stopTour: () => stopTour("stop"),
+      nextStep,
+      previousStep,
+      goToStep,
+      getState,
     }),
-    [
-      registerTarget,
-      startTour,
-      stopTour,
-      unregisterTarget,
-    ],
+    [getState, goToStep, nextStep, previousStep, startTour, stopTour],
   );
 
   return (
