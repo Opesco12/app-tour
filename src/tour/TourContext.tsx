@@ -17,7 +17,13 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { Placement, TourStep } from "./types";
+import {
+  Placement,
+  TourButtonColors,
+  TourStep,
+  TourTooltipRenderProps,
+  TourTooltipRenderer,
+} from "./types";
 
 type TourContextValue = {
   registerTarget: (id: string, ref: RefObject<View | null>) => void;
@@ -30,6 +36,8 @@ export const TourContext = createContext<TourContextValue | null>(null);
 
 type TourProviderProps = {
   children: ReactNode;
+  renderTooltip?: TourTooltipRenderer;
+  buttonColors?: TourButtonColors;
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -39,6 +47,12 @@ const TOOLTIP_HEIGHT = 140;
 const SPACING = 12;
 const SPOTLIGHT_PADDING = 8;
 const SPOTLIGHT_RADIUS = 15;
+const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
+  primaryBackground: "#2563eb",
+  primaryText: "#fff",
+  secondaryBackground: "#e2e8f0",
+  secondaryText: "#0f172a",
+};
 
 const roundedRectPath = (
   x: number,
@@ -130,8 +144,13 @@ const getTooltipPosition = (
   };
 };
 
-export const TourProvider = ({ children }: TourProviderProps) => {
+export const TourProvider = ({
+  children,
+  renderTooltip,
+  buttonColors,
+}: TourProviderProps) => {
   const targetsRef = useRef<Map<string, RefObject<View | null>>>(new Map());
+  const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
 
   const [showPrompt, setShowPrompt] = useState(false);
   const [steps, setSteps] = useState<TourStep[]>([]);
@@ -250,6 +269,20 @@ export const TourProvider = ({ children }: TourProviderProps) => {
     SPOTLIGHT_RADIUS,
   );
   const overlayPath = `M 0 0 H ${SCREEN_WIDTH} V ${SCREEN_HEIGHT} H 0 Z ${spotlightCutoutPath}`;
+  const tooltipRenderProps: TourTooltipRenderProps | null =
+    activeStep && activeStepIndex !== null && tooltipPosition
+      ? {
+          step: activeStep,
+          stepIndex: activeStepIndex,
+          totalSteps: steps.length,
+          isFirstStep: activeStepIndex === 0,
+          isLastStep: activeStepIndex === steps.length - 1,
+          position: tooltipPosition,
+          next: nextStep,
+          back: previousStep,
+          stop: stopTour,
+        }
+      : null;
 
   const contextValue = useMemo(
     () => ({
@@ -275,16 +308,36 @@ export const TourProvider = ({ children }: TourProviderProps) => {
             </Text>
             <View style={styles.actionsRow}>
               <Pressable
-                style={styles.secondaryButton}
+                style={[
+                  styles.secondaryButton,
+                  { backgroundColor: resolvedButtonColors.secondaryBackground },
+                ]}
                 onPress={stopTour}
               >
-                <Text style={styles.secondaryButtonText}>Skip</Text>
+                <Text
+                  style={[
+                    styles.secondaryButtonText,
+                    { color: resolvedButtonColors.secondaryText },
+                  ]}
+                >
+                  Skip
+                </Text>
               </Pressable>
               <Pressable
-                style={styles.primaryButton}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: resolvedButtonColors.primaryBackground },
+                ]}
                 onPress={beginTour}
               >
-                <Text style={styles.primaryButtonText}>Start Tour</Text>
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    { color: resolvedButtonColors.primaryText },
+                  ]}
+                >
+                  Start Tour
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -327,57 +380,79 @@ export const TourProvider = ({ children }: TourProviderProps) => {
             ]}
           />
 
-          <View
-            style={[
-              styles.tooltip,
-              {
-                top: tooltipPosition.top,
-                left: tooltipPosition.left,
-              },
-            ]}
-          >
-            <Pressable
-              onPress={stopTour}
-              style={styles.closeButton}
-              hitSlop={8}
+          {renderTooltip && tooltipRenderProps ? (
+            renderTooltip(tooltipRenderProps)
+          ) : (
+            <View
+              style={[
+                styles.tooltip,
+                {
+                  top: tooltipPosition.top,
+                  left: tooltipPosition.left,
+                },
+              ]}
             >
-              <Text style={styles.closeButtonText}>×</Text>
-            </Pressable>
+              <Pressable
+                onPress={stopTour}
+                style={styles.closeButton}
+                hitSlop={8}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </Pressable>
 
-            <Text style={styles.stepCounter}>
-              Step {activeStepIndex! + 1} of {steps.length}
-            </Text>
-
-            <Text style={styles.tooltipTitle}>{activeStep.title}</Text>
-
-            {activeStep.description ? (
-              <Text style={styles.tooltipDescription}>
-                {activeStep.description}
+              <Text style={styles.stepCounter}>
+                Step {activeStepIndex! + 1} of {steps.length}
               </Text>
-            ) : null}
 
-            <View style={styles.actionsRow}>
-              <Pressable
-                onPress={previousStep}
-                disabled={activeStepIndex === 0}
-                style={[
-                  styles.secondaryButton,
-                  activeStepIndex === 0 && styles.disabledButton,
-                ]}
-              >
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </Pressable>
+              <Text style={styles.tooltipTitle}>{activeStep.title}</Text>
 
-              <Pressable
-                onPress={nextStep}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {activeStepIndex === steps.length - 1 ? "Done" : "Next"}
+              {activeStep.description ? (
+                <Text style={styles.tooltipDescription}>
+                  {activeStep.description}
                 </Text>
-              </Pressable>
+              ) : null}
+
+              <View style={styles.actionsRow}>
+                <Pressable
+                  onPress={previousStep}
+                  disabled={activeStepIndex === 0}
+                  style={[
+                    styles.secondaryButton,
+                    {
+                      backgroundColor: resolvedButtonColors.secondaryBackground,
+                    },
+                    activeStepIndex === 0 && styles.disabledButton,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      { color: resolvedButtonColors.secondaryText },
+                    ]}
+                  >
+                    Back
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={nextStep}
+                  style={[
+                    styles.primaryButton,
+                    { backgroundColor: resolvedButtonColors.primaryBackground },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.primaryButtonText,
+                      { color: resolvedButtonColors.primaryText },
+                    ]}
+                  >
+                    {activeStepIndex === steps.length - 1 ? "Done" : "Next"}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       )}
     </TourContext.Provider>
