@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { Placement, TourStep } from "./types";
 
@@ -37,6 +38,29 @@ const TOOLTIP_WIDTH = 280;
 const TOOLTIP_HEIGHT = 140;
 const SPACING = 12;
 const SPOTLIGHT_PADDING = 8;
+const SPOTLIGHT_RADIUS = 15;
+
+const roundedRectPath = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) => {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  return [
+    `M ${x + r} ${y}`,
+    `H ${x + width - r}`,
+    `Q ${x + width} ${y} ${x + width} ${y + r}`,
+    `V ${y + height - r}`,
+    `Q ${x + width} ${y + height} ${x + width - r} ${y + height}`,
+    `H ${x + r}`,
+    `Q ${x} ${y + height} ${x} ${y + height - r}`,
+    `V ${y + r}`,
+    `Q ${x} ${y} ${x + r} ${y}`,
+    "Z",
+  ].join(" ");
+};
 
 const measureTarget = (ref: RefObject<View | null>) => {
   return new Promise<LayoutRectangle>((resolve, reject) => {
@@ -218,6 +242,14 @@ export const TourProvider = ({ children }: TourProviderProps) => {
     targetLayout !== null ? targetLayout.width + SPOTLIGHT_PADDING * 2 : 0;
   const spotlightHeight =
     targetLayout !== null ? targetLayout.height + SPOTLIGHT_PADDING * 2 : 0;
+  const spotlightCutoutPath = roundedRectPath(
+    Math.max(0, spotlightLeft),
+    Math.max(0, spotlightTop),
+    Math.max(0, spotlightWidth),
+    Math.max(0, spotlightHeight),
+    SPOTLIGHT_RADIUS,
+  );
+  const overlayPath = `M 0 0 H ${SCREEN_WIDTH} V ${SCREEN_HEIGHT} H 0 Z ${spotlightCutoutPath}`;
 
   const contextValue = useMemo(
     () => ({
@@ -265,9 +297,22 @@ export const TourProvider = ({ children }: TourProviderProps) => {
           pointerEvents="box-none"
         >
           <Pressable
-            style={styles.overlay}
+            style={StyleSheet.absoluteFill}
             onPress={() => {}}
           />
+
+          <Svg
+            pointerEvents="none"
+            width={SCREEN_WIDTH}
+            height={SCREEN_HEIGHT}
+            style={StyleSheet.absoluteFill}
+          >
+            <Path
+              d={overlayPath}
+              fill="rgba(0,0,0,0.65)"
+              fillRule="evenodd"
+            />
+          </Svg>
 
           <View
             pointerEvents="none"
@@ -366,10 +411,10 @@ const styles = StyleSheet.create({
   },
   spotlight: {
     position: "absolute",
-    borderRadius: 18,
+    borderRadius: SPOTLIGHT_RADIUS,
     borderWidth: 2,
     borderColor: "#fff",
-    // backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "transparent",
   },
   tooltip: {
     position: "absolute",
