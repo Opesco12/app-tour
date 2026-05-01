@@ -1,7 +1,13 @@
 import { Stack } from "expo-router";
 
+import { TourProvider } from "../tour";
+
 const AppLayout = () => {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <TourProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </TourProvider>
+  );
 };
 
 export default AppLayout;
