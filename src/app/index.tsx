@@ -1,15 +1,12 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getTourReady, setTourReady } from "../shared/tourReadiness";
 import { TourTarget, useTour } from "../tour";
 
 const HomeScreen = () => {
   const { startTour } = useTour();
 
   const handleStartTour = () => {
-    setTourReady("details.loaded", false);
-
     startTour([
       {
         id: "home.start",
@@ -33,14 +30,10 @@ const HomeScreen = () => {
         id: "details.cta",
         target: "details.primaryCta",
         title: "Cross-screen Tour",
-        description:
-          "The tour moves to Details and waits for the screen to finish loading.",
+        description: "The tour moves to Details and waits until the action is available.",
         placement: "top",
         route: "/details",
-        readiness: {
-          timeoutMs: 8000,
-          isReady: () => getTourReady("details.loaded"),
-        },
+        readiness: { timeoutMs: 8000 },
       },
       {
         id: "home.quickAction",

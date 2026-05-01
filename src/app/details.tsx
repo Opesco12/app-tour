@@ -3,17 +3,13 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { TourTarget } from "../tour";
-import { setTourReady } from "../shared/tourReadiness";
 
 const DetailsScreen = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setTourReady("details.loaded", false);
-
     const timer = setTimeout(() => {
       setLoading(false);
-      setTourReady("details.loaded", true);
     }, 1400);
 
     return () => {
@@ -34,11 +30,17 @@ const DetailsScreen = () => {
         <Text style={styles.metricMeta}>Temperature drift detected 12 minutes ago.</Text>
       </View>
 
-      <TourTarget id="details.primaryCta">
-        <Pressable style={styles.ctaButton} onPress={() => router.back()}>
-          <Text style={styles.ctaText}>Return to Dashboard</Text>
-        </Pressable>
-      </TourTarget>
+      {loading ? (
+        <View style={[styles.ctaButton, styles.ctaButtonDisabled]}>
+          <Text style={styles.ctaText}>Preparing Action...</Text>
+        </View>
+      ) : (
+        <TourTarget id="details.primaryCta">
+          <Pressable style={styles.ctaButton} onPress={() => router.back()}>
+            <Text style={styles.ctaText}>Return to Dashboard</Text>
+          </Pressable>
+        </TourTarget>
+      )}
     </View>
   );
 };
@@ -95,6 +97,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  ctaButtonDisabled: {
+    opacity: 0.55,
   },
 });
 
