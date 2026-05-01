@@ -41,6 +41,8 @@ type TourProviderProps = {
   buttonColors?: TourButtonColors;
   spotlightShape?: SpotlightShape;
   spotlightBorderRadius?: number;
+  spotlightPadding?: number;
+  overlayOpacity?: number;
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -50,6 +52,7 @@ const TOOLTIP_HEIGHT = 140;
 const SPACING = 12;
 const SPOTLIGHT_PADDING = 8;
 const SPOTLIGHT_RADIUS = 12;
+const DEFAULT_OVERLAY_OPACITY = 0.65;
 const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
   primaryBackground: "#2563eb",
   primaryText: "#fff",
@@ -169,9 +172,14 @@ export const TourProvider = ({
   buttonColors,
   spotlightShape = "rounded-rectangle",
   spotlightBorderRadius = SPOTLIGHT_RADIUS,
+  spotlightPadding = SPOTLIGHT_PADDING,
+  overlayOpacity = DEFAULT_OVERLAY_OPACITY,
 }: TourProviderProps) => {
   const targetsRef = useRef<Map<string, RefObject<View | null>>>(new Map());
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
+  const safeSpotlightPadding = Math.max(0, spotlightPadding);
+  const clampedOverlayOpacity = Math.max(0, Math.min(overlayOpacity, 1));
+  const overlayColor = `rgba(0,0,0,${clampedOverlayOpacity})`;
 
   const [showPrompt, setShowPrompt] = useState(false);
   const [steps, setSteps] = useState<TourStep[]>([]);
@@ -275,13 +283,13 @@ export const TourProvider = ({
       : null;
 
   const spotlightTop =
-    targetLayout !== null ? targetLayout.y - SPOTLIGHT_PADDING : 0;
+    targetLayout !== null ? targetLayout.y - safeSpotlightPadding : 0;
   const spotlightLeft =
-    targetLayout !== null ? targetLayout.x - SPOTLIGHT_PADDING : 0;
+    targetLayout !== null ? targetLayout.x - safeSpotlightPadding : 0;
   const spotlightWidth =
-    targetLayout !== null ? targetLayout.width + SPOTLIGHT_PADDING * 2 : 0;
+    targetLayout !== null ? targetLayout.width + safeSpotlightPadding * 2 : 0;
   const spotlightHeight =
-    targetLayout !== null ? targetLayout.height + SPOTLIGHT_PADDING * 2 : 0;
+    targetLayout !== null ? targetLayout.height + safeSpotlightPadding * 2 : 0;
   const normalizedLeft = Math.max(0, spotlightLeft);
   const normalizedTop = Math.max(0, spotlightTop);
   const normalizedWidth = Math.max(0, spotlightWidth);
@@ -348,7 +356,9 @@ export const TourProvider = ({
 
       {showPrompt && activeStepIndex === null && (
         <View style={StyleSheet.absoluteFill}>
-          <Pressable style={styles.overlay} />
+          <Pressable
+            style={[styles.overlay, { backgroundColor: overlayColor }]}
+          />
           <View style={styles.promptCard}>
             <Text style={styles.promptTitle}>Take a quick product tour?</Text>
             <Text style={styles.promptDescription}>
@@ -410,7 +420,7 @@ export const TourProvider = ({
           >
             <Path
               d={overlayPath}
-              fill="rgba(0,0,0,0.65)"
+              fill={overlayColor}
               fillRule="evenodd"
             />
           </Svg>
