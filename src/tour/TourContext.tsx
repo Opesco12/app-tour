@@ -19,6 +19,7 @@ import Svg, { Path } from "react-native-svg";
 
 import {
   Placement,
+  SpotlightShape,
   TourButtonColors,
   TourStep,
   TourTooltipRenderer,
@@ -38,6 +39,8 @@ type TourProviderProps = {
   children: ReactNode;
   renderTooltip?: TourTooltipRenderer;
   buttonColors?: TourButtonColors;
+  spotlightShape?: SpotlightShape;
+  spotlightBorderRadius?: number;
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -72,6 +75,22 @@ const roundedRectPath = (
     `Q ${x} ${y + height} ${x} ${y + height - r}`,
     `V ${y + r}`,
     `Q ${x} ${y} ${x + r} ${y}`,
+    "Z",
+  ].join(" ");
+};
+
+const ellipsePath = (
+  centerX: number,
+  centerY: number,
+  radiusX: number,
+  radiusY: number,
+) => {
+  const rx = Math.max(0, radiusX);
+  const ry = Math.max(0, radiusY);
+  return [
+    `M ${centerX - rx} ${centerY}`,
+    `A ${rx} ${ry} 0 1 0 ${centerX + rx} ${centerY}`,
+    `A ${rx} ${ry} 0 1 0 ${centerX - rx} ${centerY}`,
     "Z",
   ].join(" ");
 };
@@ -148,6 +167,8 @@ export const TourProvider = ({
   children,
   renderTooltip,
   buttonColors,
+  spotlightShape = "rounded-rectangle",
+  spotlightBorderRadius = SPOTLIGHT_RADIUS,
 }: TourProviderProps) => {
   const targetsRef = useRef<Map<string, RefObject<View | null>>>(new Map());
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
@@ -261,13 +282,40 @@ export const TourProvider = ({
     targetLayout !== null ? targetLayout.width + SPOTLIGHT_PADDING * 2 : 0;
   const spotlightHeight =
     targetLayout !== null ? targetLayout.height + SPOTLIGHT_PADDING * 2 : 0;
-  const spotlightCutoutPath = roundedRectPath(
-    Math.max(0, spotlightLeft),
-    Math.max(0, spotlightTop),
-    Math.max(0, spotlightWidth),
-    Math.max(0, spotlightHeight),
-    SPOTLIGHT_RADIUS,
-  );
+  const normalizedLeft = Math.max(0, spotlightLeft);
+  const normalizedTop = Math.max(0, spotlightTop);
+  const normalizedWidth = Math.max(0, spotlightWidth);
+  const normalizedHeight = Math.max(0, spotlightHeight);
+  const spotlightCutoutPath =
+    spotlightShape === "circle"
+      ? ellipsePath(
+          normalizedLeft + normalizedWidth / 2,
+          normalizedTop + normalizedHeight / 2,
+          Math.min(normalizedWidth, normalizedHeight) / 2,
+          Math.min(normalizedWidth, normalizedHeight) / 2,
+        )
+      : spotlightShape === "oval"
+        ? ellipsePath(
+            normalizedLeft + normalizedWidth / 2,
+            normalizedTop + normalizedHeight / 2,
+            normalizedWidth / 2,
+            normalizedHeight / 2,
+          )
+        : spotlightShape === "rectangle"
+          ? roundedRectPath(
+              normalizedLeft,
+              normalizedTop,
+              normalizedWidth,
+              normalizedHeight,
+              0,
+            )
+          : roundedRectPath(
+              normalizedLeft,
+              normalizedTop,
+              normalizedWidth,
+              normalizedHeight,
+              spotlightBorderRadius,
+            );
   const overlayPath = `M 0 0 H ${SCREEN_WIDTH} V ${SCREEN_HEIGHT} H 0 Z ${spotlightCutoutPath}`;
   const tooltipRenderProps: TourTooltipRenderProps | null =
     activeStep && activeStepIndex !== null && tooltipPosition
@@ -367,18 +415,19 @@ export const TourProvider = ({
             />
           </Svg>
 
-          <View
+          <Svg
             pointerEvents="none"
-            style={[
-              styles.spotlight,
-              {
-                top: spotlightTop,
-                left: spotlightLeft,
-                width: spotlightWidth,
-                height: spotlightHeight,
-              },
-            ]}
-          />
+            width={SCREEN_WIDTH}
+            height={SCREEN_HEIGHT}
+            style={StyleSheet.absoluteFill}
+          >
+            <Path
+              d={spotlightCutoutPath}
+              fill="none"
+              stroke="#fff"
+              strokeWidth={2}
+            />
+          </Svg>
 
           {renderTooltip && tooltipRenderProps ? (
             renderTooltip(tooltipRenderProps)
@@ -483,13 +532,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: "#475569",
     marginBottom: 16,
-  },
-  spotlight: {
-    position: "absolute",
-    borderRadius: SPOTLIGHT_RADIUS,
-    borderWidth: 2,
-    borderColor: "#fff",
-    backgroundColor: "transparent",
   },
   tooltip: {
     position: "absolute",

@@ -46,3 +46,9 @@ export type TourButtonColors = {
   secondaryBackground?: string;
   secondaryText?: string;
 };
+
+export type SpotlightShape =
+  | "rectangle"
+  | "rounded-rectangle"
+  | "circle"
+  | "oval";

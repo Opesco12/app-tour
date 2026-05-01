@@ -3,6 +3,7 @@ export { TourTarget } from "./TourTarget";
 export { useTour } from "./useTour";
 export type {
   Placement,
+  SpotlightShape,
   TourButtonColors,
   TourStep,
   TourTooltipRenderer,
