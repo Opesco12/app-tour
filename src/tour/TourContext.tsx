@@ -29,8 +29,15 @@ import {
   TourTooltipRenderer,
 } from "./types";
 
+type RegisteredTarget = {
+  ref: RefObject<View | null>;
+};
+
 type TourContextValue = {
-  registerTarget: (id: string, ref: RefObject<View | null>) => void;
+  registerTarget: (
+    id: string,
+    ref: RefObject<View | null>,
+  ) => void;
   unregisterTarget: (id: string) => void;
   startTour: (steps: TourStep[]) => void;
   stopTour: () => void;
@@ -96,7 +103,7 @@ export const TourProvider = ({
   onStop,
 }: TourProviderProps) => {
   const { width: screenWidth, height: screenHeight } = getScreenSize();
-  const targetsRef = useRef<Map<string, RefObject<View | null>>>(new Map());
+  const targetsRef = useRef<Map<string, RegisteredTarget>>(new Map());
 
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
   const safeSpotlightPadding = Math.max(0, spotlightPadding);
@@ -109,9 +116,14 @@ export const TourProvider = ({
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [targetLayout, setTargetLayout] = useState<LayoutRectangle | null>(null);
 
-  const registerTarget = useCallback((id: string, ref: RefObject<View | null>) => {
-    targetsRef.current.set(id, ref);
-  }, []);
+  const registerTarget = useCallback(
+    (id: string, ref: RefObject<View | null>) => {
+      targetsRef.current.set(id, {
+        ref,
+      });
+    },
+    [],
+  );
 
   const unregisterTarget = useCallback((id: string) => {
     targetsRef.current.delete(id);
@@ -139,15 +151,15 @@ export const TourProvider = ({
         return;
       }
 
-      const targetRef = targetsRef.current.get(step.target);
-      if (!targetRef) {
+      const target = targetsRef.current.get(step.target);
+      if (!target) {
         console.warn(`[Tour] target not registered: ${step.target}`);
         stopTour("internal");
         return;
       }
 
       try {
-        const layout = await measureTarget(targetRef);
+        const layout = await measureTarget(target.ref);
         setTargetLayout(layout);
         setActiveStepIndex(index);
         onStepChange?.(step, index);
@@ -248,8 +260,18 @@ export const TourProvider = ({
       : null;
 
   const contextValue = useMemo(
-    () => ({ registerTarget, unregisterTarget, startTour, stopTour: () => stopTour("stop") }),
-    [registerTarget, startTour, stopTour, unregisterTarget],
+    () => ({
+      registerTarget,
+      unregisterTarget,
+      startTour,
+      stopTour: () => stopTour("stop"),
+    }),
+    [
+      registerTarget,
+      startTour,
+      stopTour,
+      unregisterTarget,
+    ],
   );
 
   return (

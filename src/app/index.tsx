@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { TourTarget, useTour } from "../tour";
 
@@ -9,63 +9,87 @@ const TourDemo = () => {
   const handleStartTour = () => {
     startTour([
       {
-        target: "home.createButton",
-        title: "Create a new item",
-        description: "Tap here to add your first product.",
+        target: "home.startButton",
+        title: "Welcome to the Inventory Dashboard!",
+        description:
+          "This tour will guide you through the key features of this screen.",
         placement: "top",
-        allowInteractionWithTarget: true,
       },
       {
-        target: "home.searchInput",
-        title: "Search quickly",
-        description: "Use this to find products, orders, or customers.",
+        target: "home.button3",
+        title: "Another button",
+        description:
+          "This button doesn't do anything, but it serves as an example of a target outside the scroll view.",
+        placement: "top",
+      },
+      {
+        target: "home.item.8",
+        title: "Near item (short scroll)",
+        description:
+          "This item is close, so the tour performs a short auto-scroll.",
         placement: "bottom",
       },
       {
-        target: "home.salesCard",
-        title: "View sales summary",
-        description: "This card shows your most important sales information.",
+        target: "home.item.24",
+        title: "Far item (long scroll)",
+        description:
+          "This one starts far below the viewport, so the tour auto-scrolls much farther.",
         placement: "bottom",
       },
     ]);
+  };
+
+  const items = Array.from({ length: 30 }, (_, index) => index + 1);
+
+  const renderItem = (itemNumber: number) => {
+    const id = `home.item.${itemNumber}`;
+    const content = (
+      <View style={styles.itemCard}>
+        <Text style={styles.itemTitle}>Inventory Item #{itemNumber}</Text>
+        <Text style={styles.itemMeta}>SKU-{1000 + itemNumber}</Text>
+      </View>
+    );
+
+    if (itemNumber === 8 || itemNumber === 24) {
+      return (
+        <TourTarget
+          key={id}
+          id={id}
+        >
+          {content}
+        </TourTarget>
+      );
+    }
+
+    return <View key={id}>{content}</View>;
   };
 
   return (
     <View style={styles.screen}>
       <Text style={styles.heading}>Inventory Dashboard</Text>
 
-      <View style={{ marginBottom: 20 }}>
-        <TourTarget id="home.searchInput">
-          <View style={styles.searchBox}>
-            <Text style={styles.searchText}>Search products...</Text>
-          </View>
-        </TourTarget>
-      </View>
-
-      <TourTarget id="home.salesCard">
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Today’s Sales</Text>
-          <Text style={styles.cardAmount}>₦245,000</Text>
-        </View>
-      </TourTarget>
-
-      <View style={styles.spacer} />
-
-      <TourTarget id="home.createButton">
+      <TourTarget id="home.startButton">
         <Pressable
-          onPress={() => console.log("add button pressed again")}
-          style={styles.addButton}
+          style={styles.startButton}
+          onPress={handleStartTour}
         >
-          <Text style={styles.addButtonText}>Add Product</Text>
+          <Text style={styles.startButtonText}>Start Tour</Text>
         </Pressable>
       </TourTarget>
 
-      <Pressable
-        style={styles.startButton}
-        onPress={handleStartTour}
-      >
-        <Text style={styles.startButtonText}>Start Tour</Text>
+      <Pressable style={styles.startButton}>
+        <Text style={styles.startButtonText}>button 2</Text>
       </Pressable>
+
+      <TourTarget id="home.button3">
+        <Pressable style={styles.startButton}>
+          <Text style={styles.startButtonText}>button 3</Text>
+        </Pressable>
+      </TourTarget>
+
+      <ScrollView>
+        <View style={styles.listContent}>{items.map(renderItem)}</View>
+      </ScrollView>
     </View>
   );
 };
@@ -83,50 +107,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     color: "#0f172a",
   },
-  searchBox: {
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  searchText: {
-    color: "#64748b",
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
-  },
-  cardTitle: {
-    color: "#64748b",
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  cardAmount: {
-    color: "#0f172a",
-    fontSize: 32,
-    fontWeight: "700",
-  },
-  spacer: {
-    flex: 1,
-  },
-  addButton: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "#2563eb",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
   startButton: {
     height: 52,
     borderRadius: 18,
@@ -140,6 +120,27 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  listContent: {
+    paddingBottom: 40,
+  },
+  itemCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 16,
+    marginBottom: 12,
+  },
+  itemTitle: {
+    color: "#0f172a",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  itemMeta: {
+    color: "#64748b",
+    fontSize: 13,
   },
 });
 

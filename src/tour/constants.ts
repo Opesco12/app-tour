@@ -1,5 +1,5 @@
 export const TOURTIP_WIDTH = 280;
-export const TOURTIP_HEIGHT = 140;
+export const TOURTIP_HEIGHT = 200;
 export const TOOLTIP_SPACING = 12;
 export const DEFAULT_SPOTLIGHT_PADDING = 8;
 export const DEFAULT_SPOTLIGHT_RADIUS = 12;

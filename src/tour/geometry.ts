@@ -55,19 +55,45 @@ export const getTooltipPosition = (
 ): TooltipPosition => {
   const spaceAbove = target.y;
   const spaceBelow = SCREEN_HEIGHT - (target.y + target.height);
+  const spaceLeft = target.x;
   const spaceRight = SCREEN_WIDTH - (target.x + target.width);
 
-  let finalPlacement = placement;
+  const canPlaceBottom = spaceBelow >= TOURTIP_HEIGHT + TOOLTIP_SPACING;
+  const canPlaceTop = spaceAbove >= TOURTIP_HEIGHT + TOOLTIP_SPACING;
+  const canPlaceRight = spaceRight >= TOURTIP_WIDTH + TOOLTIP_SPACING;
+  const canPlaceLeft = spaceLeft >= TOURTIP_WIDTH + TOOLTIP_SPACING;
+
+  let preferredPlacements: Placement[] = [];
 
   if (placement === "auto") {
-    if (spaceBelow >= TOURTIP_HEIGHT + TOOLTIP_SPACING) {
+    preferredPlacements = ["bottom", "top", "right", "left"];
+  } else if (placement === "top") {
+    preferredPlacements = ["top", "bottom", "right", "left"];
+  } else if (placement === "bottom") {
+    preferredPlacements = ["bottom", "top", "right", "left"];
+  } else if (placement === "right") {
+    preferredPlacements = ["right", "left", "bottom", "top"];
+  } else {
+    preferredPlacements = ["left", "right", "bottom", "top"];
+  }
+
+  let finalPlacement = preferredPlacements[0] ?? "bottom";
+  for (const candidate of preferredPlacements) {
+    if (candidate === "bottom" && canPlaceBottom) {
       finalPlacement = "bottom";
-    } else if (spaceAbove >= TOURTIP_HEIGHT + TOOLTIP_SPACING) {
+      break;
+    }
+    if (candidate === "top" && canPlaceTop) {
       finalPlacement = "top";
-    } else if (spaceRight >= TOURTIP_WIDTH + TOOLTIP_SPACING) {
+      break;
+    }
+    if (candidate === "right" && canPlaceRight) {
       finalPlacement = "right";
-    } else {
+      break;
+    }
+    if (candidate === "left" && canPlaceLeft) {
       finalPlacement = "left";
+      break;
     }
   }
 
