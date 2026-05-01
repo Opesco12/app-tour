@@ -82,7 +82,7 @@ export const TourScrollView = ({
 
   useEffect(() => {
     registerScrollContainer(id, {
-      revealTarget: async (targetRef, signal) => {
+      revealTarget: async (_step, targetRef, signal) => {
         const scrollNode = scrollRef.current;
         const containerNode = containerRef.current;
         const targetNode = targetRef.current;

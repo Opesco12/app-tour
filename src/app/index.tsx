@@ -77,6 +77,27 @@ const HomeScreen = () => {
         placement: "bottom",
         route: "/profile",
       },
+      {
+        id: "flat.item10",
+        target: "flat.item.10",
+        title: "FlatList Support",
+        description: "This step demonstrates FlatList auto-scroll reveal support.",
+        placement: "top",
+        route: "/flatlist",
+        scrollToTarget: true,
+        scrollContainerId: "flatlist-container",
+      },
+      {
+        id: "section.deep",
+        target: "section.1.item.6",
+        title: "SectionList Support",
+        description:
+          "This step demonstrates SectionList section/item auto-scroll support.",
+        placement: "top",
+        route: "/sectionlist",
+        scrollToTarget: true,
+        scrollContainerId: "sectionlist-container",
+      },
     ]);
   };
 

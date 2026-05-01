@@ -1,6 +1,8 @@
 export { TourProvider } from "./TourContext";
-export { TourTarget } from "./TourTarget";
+export { TourFlatList } from "./TourFlatList";
 export { TourScrollView } from "./TourScrollView";
+export { TourSectionList } from "./TourSectionList";
+export { TourTarget } from "./TourTarget";
 export { useTour } from "./useTour";
 export { createExpoRouterAdapter } from "./expoRouterAdapter";
 export type {

@@ -47,6 +47,8 @@ export type TourStep = {
   readiness?: WaitForConfig;
   scrollToTarget?: boolean;
   scrollContainerId?: string;
+  scrollTargetIndex?: number;
+  scrollSectionIndex?: number;
   skippable?: boolean;
 };
 
@@ -123,7 +125,11 @@ export type TourFailureReason =
 export type RegisteredTargetRef = RefObject<View | null>;
 
 export type ScrollContainerHandle = {
-  revealTarget: (targetRef: RegisteredTargetRef, signal: AbortSignal) => Promise<void>;
+  revealTarget: (
+    step: TourStep,
+    targetRef: RegisteredTargetRef,
+    signal: AbortSignal,
+  ) => Promise<void>;
 };
 
 export type TourFailureContext = {

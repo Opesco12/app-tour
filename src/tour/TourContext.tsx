@@ -375,7 +375,7 @@ export const TourProvider = ({
             throw new Error("scroll_container_not_found");
           }
 
-          await container.revealTarget(target.ref, controller.signal);
+          await container.revealTarget(step, target.ref, controller.signal);
           await sleep(120, controller.signal);
         }
 
