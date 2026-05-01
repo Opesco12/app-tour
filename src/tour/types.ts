@@ -8,6 +8,7 @@ export type TourStep = {
   title: string;
   description?: string;
   placement?: Placement;
+  allowInteractionWithTarget?: boolean;
 };
 
 export type TourTargetHandle = {

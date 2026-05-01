@@ -43,6 +43,10 @@ type TourProviderProps = {
   spotlightBorderRadius?: number;
   spotlightPadding?: number;
   overlayOpacity?: number;
+  overlayColor?: string;
+  closeOnOverlayPress?: boolean;
+  tooltipBackground?: string;
+  tooltipTextColor?: string;
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -53,6 +57,8 @@ const SPACING = 12;
 const SPOTLIGHT_PADDING = 8;
 const SPOTLIGHT_RADIUS = 12;
 const DEFAULT_OVERLAY_OPACITY = 0.65;
+const DEFAULT_TOOLTIP_BACKGROUND = "#fff";
+const DEFAULT_TOOLTIP_TEXT_COLOR = "#0f172a";
 const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
   primaryBackground: "#2563eb",
   primaryText: "#fff",
@@ -174,12 +180,17 @@ export const TourProvider = ({
   spotlightBorderRadius = SPOTLIGHT_RADIUS,
   spotlightPadding = SPOTLIGHT_PADDING,
   overlayOpacity = DEFAULT_OVERLAY_OPACITY,
+  overlayColor,
+  closeOnOverlayPress = false,
+  tooltipBackground = DEFAULT_TOOLTIP_BACKGROUND,
+  tooltipTextColor = DEFAULT_TOOLTIP_TEXT_COLOR,
 }: TourProviderProps) => {
   const targetsRef = useRef<Map<string, RefObject<View | null>>>(new Map());
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
   const safeSpotlightPadding = Math.max(0, spotlightPadding);
   const clampedOverlayOpacity = Math.max(0, Math.min(overlayOpacity, 1));
-  const overlayColor = `rgba(0,0,0,${clampedOverlayOpacity})`;
+  const resolvedOverlayColor =
+    overlayColor ?? `rgba(0,0,0,${clampedOverlayOpacity})`;
 
   const [showPrompt, setShowPrompt] = useState(false);
   const [steps, setSteps] = useState<TourStep[]>([]);
@@ -325,6 +336,14 @@ export const TourProvider = ({
               spotlightBorderRadius,
             );
   const overlayPath = `M 0 0 H ${SCREEN_WIDTH} V ${SCREEN_HEIGHT} H 0 Z ${spotlightCutoutPath}`;
+  const spotlightRight = normalizedLeft + normalizedWidth;
+  const spotlightBottom = normalizedTop + normalizedHeight;
+  const allowInteractionWithTarget = Boolean(activeStep?.allowInteractionWithTarget);
+  const handleOverlayPress = () => {
+    if (closeOnOverlayPress) {
+      stopTour();
+    }
+  };
   const tooltipRenderProps: TourTooltipRenderProps | null =
     activeStep && activeStepIndex !== null && tooltipPosition
       ? {
@@ -357,7 +376,7 @@ export const TourProvider = ({
       {showPrompt && activeStepIndex === null && (
         <View style={StyleSheet.absoluteFill}>
           <Pressable
-            style={[styles.overlay, { backgroundColor: overlayColor }]}
+            style={[styles.overlay, { backgroundColor: resolvedOverlayColor }]}
           />
           <View style={styles.promptCard}>
             <Text style={styles.promptTitle}>Take a quick product tour?</Text>
@@ -407,10 +426,63 @@ export const TourProvider = ({
           style={StyleSheet.absoluteFill}
           pointerEvents="box-none"
         >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {}}
-          />
+          {allowInteractionWithTarget ? (
+            <>
+              <Pressable
+                style={[
+                  styles.overlayTouchSegment,
+                  {
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: normalizedTop,
+                  },
+                ]}
+                onPress={handleOverlayPress}
+              />
+              <Pressable
+                style={[
+                  styles.overlayTouchSegment,
+                  {
+                    top: spotlightBottom,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                  },
+                ]}
+                onPress={handleOverlayPress}
+              />
+              <Pressable
+                style={[
+                  styles.overlayTouchSegment,
+                  {
+                    top: normalizedTop,
+                    left: 0,
+                    width: normalizedLeft,
+                    height: normalizedHeight,
+                  },
+                ]}
+                onPress={handleOverlayPress}
+              />
+              <Pressable
+                style={[
+                  styles.overlayTouchSegment,
+                  {
+                    top: normalizedTop,
+                    left: spotlightRight,
+                    right: 0,
+                    height: normalizedHeight,
+                  },
+                ]}
+                onPress={handleOverlayPress}
+              />
+            </>
+          ) : (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={handleOverlayPress}
+            />
+          )}
 
           <Svg
             pointerEvents="none"
@@ -420,7 +492,7 @@ export const TourProvider = ({
           >
             <Path
               d={overlayPath}
-              fill={overlayColor}
+              fill={resolvedOverlayColor}
               fillRule="evenodd"
             />
           </Svg>
@@ -448,6 +520,7 @@ export const TourProvider = ({
                 {
                   top: tooltipPosition.top,
                   left: tooltipPosition.left,
+                  backgroundColor: tooltipBackground,
                 },
               ]}
             >
@@ -456,17 +529,21 @@ export const TourProvider = ({
                 style={styles.closeButton}
                 hitSlop={8}
               >
-                <Text style={styles.closeButtonText}>×</Text>
+                <Text style={[styles.closeButtonText, { color: tooltipTextColor }]}>
+                  ×
+                </Text>
               </Pressable>
 
-              <Text style={styles.stepCounter}>
+              <Text style={[styles.stepCounter, { color: tooltipTextColor, opacity: 0.7 }]}>
                 Step {activeStepIndex! + 1} of {steps.length}
               </Text>
 
-              <Text style={styles.tooltipTitle}>{activeStep.title}</Text>
+              <Text style={[styles.tooltipTitle, { color: tooltipTextColor }]}>
+                {activeStep.title}
+              </Text>
 
               {activeStep.description ? (
-                <Text style={styles.tooltipDescription}>
+                <Text style={[styles.tooltipDescription, { color: tooltipTextColor, opacity: 0.85 }]}>
                   {activeStep.description}
                 </Text>
               ) : null}
@@ -522,6 +599,9 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.65)",
+  },
+  overlayTouchSegment: {
+    position: "absolute",
   },
   promptCard: {
     marginTop: "auto",

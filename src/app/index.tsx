@@ -13,6 +13,7 @@ const TourDemo = () => {
         title: "Create a new item",
         description: "Tap here to add your first product.",
         placement: "top",
+        allowInteractionWithTarget: true,
       },
       {
         target: "home.searchInput",
@@ -51,7 +52,10 @@ const TourDemo = () => {
       <View style={styles.spacer} />
 
       <TourTarget id="home.createButton">
-        <Pressable style={styles.addButton}>
+        <Pressable
+          onPress={() => console.log("add button pressed again")}
+          style={styles.addButton}
+        >
           <Text style={styles.addButtonText}>Add Product</Text>
         </Pressable>
       </TourTarget>
