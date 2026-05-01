@@ -21,8 +21,8 @@ import {
   Placement,
   TourButtonColors,
   TourStep,
-  TourTooltipRenderProps,
   TourTooltipRenderer,
+  TourTooltipRenderProps,
 } from "./types";
 
 type TourContextValue = {
@@ -46,7 +46,7 @@ const TOOLTIP_WIDTH = 280;
 const TOOLTIP_HEIGHT = 140;
 const SPACING = 12;
 const SPOTLIGHT_PADDING = 8;
-const SPOTLIGHT_RADIUS = 15;
+const SPOTLIGHT_RADIUS = 12;
 const DEFAULT_BUTTON_COLORS: Required<TourButtonColors> = {
   primaryBackground: "#2563eb",
   primaryText: "#fff",
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     marginTop: "auto",
     marginBottom: "auto",
     marginHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: "#fff",
     padding: 20,
   },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     width: TOOLTIP_WIDTH,
     minHeight: TOOLTIP_HEIGHT,
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
   },
   closeButton: {
