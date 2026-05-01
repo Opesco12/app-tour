@@ -48,6 +48,14 @@ export type TourButtonColors = {
   secondaryText?: string;
 };
 
+export type TourLifecycle = {
+  onStart?: (tour: TourStep[]) => void;
+  onStepChange?: (step: TourStep, index: number) => void;
+  onFinish?: () => void;
+  onSkip?: () => void;
+  onStop?: () => void;
+};
+
 export type SpotlightShape =
   | "rectangle"
   | "rounded-rectangle"

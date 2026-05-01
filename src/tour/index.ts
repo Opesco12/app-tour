@@ -5,6 +5,7 @@ export type {
   Placement,
   SpotlightShape,
   TourButtonColors,
+  TourLifecycle,
   TourStep,
   TourTooltipRenderer,
   TourTooltipRenderProps,
