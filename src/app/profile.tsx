@@ -10,7 +10,7 @@ const profile = () => {
       <TourTarget id="profile.cta">
         <TouchableOpacity
           style={{
-            marginTop: 20,
+            // marginTop: 20,
             paddingVertical: 15,
             backgroundColor: "black",
             borderRadius: 5,

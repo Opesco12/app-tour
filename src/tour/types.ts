@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { LayoutRectangle } from "react-native";
+import { ReactNode, RefObject } from "react";
+import { LayoutRectangle, View } from "react-native";
 
 export type Placement = "top" | "bottom" | "left" | "right" | "auto";
 export type TourDirection = "forward" | "back";
@@ -46,6 +46,7 @@ export type TourStep = {
   allowBackNavigation?: boolean;
   readiness?: WaitForConfig;
   scrollToTarget?: boolean;
+  scrollContainerId?: string;
   skippable?: boolean;
 };
 
@@ -112,11 +113,18 @@ export type TourStartOptions = {
 
 export type TourFailureReason =
   | "target_not_found"
+  | "scroll_container_not_found"
   | "route_navigation_failed"
   | "route_mismatch"
   | "readiness_timeout"
   | "readiness_rejected"
   | "aborted";
+
+export type RegisteredTargetRef = RefObject<View | null>;
+
+export type ScrollContainerHandle = {
+  revealTarget: (targetRef: RegisteredTargetRef, signal: AbortSignal) => Promise<void>;
+};
 
 export type TourFailureContext = {
   step: TourStep;

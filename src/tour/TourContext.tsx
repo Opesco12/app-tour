@@ -23,6 +23,7 @@ import { TourPrompt } from "./TourPrompt";
 import {
   NavigationAdapter,
   RouteChangeContext,
+  ScrollContainerHandle,
   SpotlightShape,
   TourButtonColors,
   TourController,
@@ -48,6 +49,8 @@ type RegisteredTarget = {
 type TourContextValue = TourController & {
   registerTarget: (id: string, ref: RefObject<View | null>) => void;
   unregisterTarget: (id: string) => void;
+  registerScrollContainer: (id: string, handle: ScrollContainerHandle) => void;
+  unregisterScrollContainer: (id: string) => void;
 };
 
 export const TourContext = createContext<TourContextValue | null>(null);
@@ -173,6 +176,7 @@ export const TourProvider = ({
 }: TourProviderProps) => {
   const { width: screenWidth, height: screenHeight } = getScreenSize();
   const targetsRef = useRef<Map<string, RegisteredTarget>>(new Map());
+  const scrollContainersRef = useRef<Map<string, ScrollContainerHandle>>(new Map());
 
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
   const safeSpotlightPadding = Math.max(0, spotlightPadding);
@@ -360,6 +364,21 @@ export const TourProvider = ({
             DEFAULT_WAIT.pollIntervalMs,
         );
 
+        if (step.scrollToTarget) {
+          const containerId = step.scrollContainerId;
+          if (!containerId) {
+            throw new Error("scroll_container_not_found");
+          }
+
+          const container = scrollContainersRef.current.get(containerId);
+          if (!container) {
+            throw new Error("scroll_container_not_found");
+          }
+
+          await container.revealTarget(target.ref, controller.signal);
+          await sleep(120, controller.signal);
+        }
+
         const layout = await measureTarget(target.ref);
 
         if (controller.signal.aborted) throw new Error("aborted");
@@ -375,6 +394,8 @@ export const TourProvider = ({
         let reason: TourFailureReason = "readiness_rejected";
 
         if (message.includes("target_not_found")) reason = "target_not_found";
+        else if (message.includes("scroll_container_not_found"))
+          reason = "scroll_container_not_found";
         else if (message.includes("route_navigation_failed")) reason = "route_navigation_failed";
         else if (message.includes("readiness_timeout")) reason = "readiness_timeout";
         else if (message.includes("aborted")) reason = "aborted";
@@ -576,6 +597,12 @@ export const TourProvider = ({
       },
       unregisterTarget: (id: string) => {
         targetsRef.current.delete(id);
+      },
+      registerScrollContainer: (id: string, handle: ScrollContainerHandle) => {
+        scrollContainersRef.current.set(id, handle);
+      },
+      unregisterScrollContainer: (id: string) => {
+        scrollContainersRef.current.delete(id);
       },
       startTour,
       stopTour: () => stopTour("stop"),

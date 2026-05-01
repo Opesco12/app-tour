@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { TourTarget, useTour } from "../tour";
+import { TourScrollView, TourTarget, useTour } from "../tour";
 
 const HomeScreen = () => {
   const { startTour } = useTour();
@@ -30,26 +30,51 @@ const HomeScreen = () => {
         id: "details.cta",
         target: "details.primaryCta",
         title: "Cross-screen Tour",
-        description: "The tour moves to Details and waits until the action is available.",
+        description:
+          "The tour moves to Details and waits until the action is available.",
         placement: "top",
         route: "/details",
         readiness: { timeoutMs: 8000 },
       },
       {
-        id: "home.quickAction",
-        target: "home.quickAction",
-        title: "Back on Home",
+        id: "home.item6",
+        target: "home.item.6",
+        title: "Scrolled Item 6",
         description:
-          "This final step returns to Home and highlights a primary quick action.",
+          "This step auto-scrolls to reveal item 6 in the dashboard list.",
         placement: "top",
         route: "/",
+        scrollToTarget: true,
+        scrollContainerId: "home-scroll",
+      },
+      {
+        id: "home.item10",
+        target: "home.item.10",
+        title: "Scrolled Item 10",
+        description:
+          "This step auto-scrolls to reveal item 10 in the dashboard list.",
+        placement: "top",
+        route: "/",
+        scrollToTarget: true,
+        scrollContainerId: "home-scroll",
+      },
+      {
+        id: "home.item14",
+        target: "home.item.14",
+        title: "Scrolled Item 14",
+        description:
+          "This step auto-scrolls to reveal item 14 in the dashboard list.",
+        placement: "top",
+        route: "/",
+        scrollToTarget: true,
+        scrollContainerId: "home-scroll",
       },
       {
         id: "profile.cta",
         target: "profile.cta",
         title: "Profile Screen",
         description: "Tours can target any screen, like this one on Profile.",
-        placement: "top",
+        placement: "bottom",
         route: "/profile",
       },
     ]);
@@ -90,11 +115,43 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      <TourTarget id="home.quickAction">
-        <Pressable style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Create Restock Request</Text>
-        </Pressable>
-      </TourTarget>
+      <TourScrollView
+        id="home-scroll"
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {Array.from({ length: 14 }, (_, index) => index + 1).map((item) => {
+          const id = `home.item.${item}`;
+          const card = (
+            <View style={styles.listCard}>
+              <Text style={styles.listTitle}>Warehouse Zone {item}</Text>
+              <Text style={styles.listMeta}>Open tasks: {item + 2}</Text>
+            </View>
+          );
+
+          if (item === 6 || item === 10 || item === 14) {
+            return (
+              <TourTarget
+                key={id}
+                id={id}
+              >
+                {card}
+              </TourTarget>
+            );
+          }
+
+          return <View key={id}>{card}</View>;
+        })}
+
+        <TourTarget id="home.quickAction">
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>
+              Create Restock Request
+            </Text>
+          </Pressable>
+        </TourTarget>
+      </TourScrollView>
     </View>
   );
 };
@@ -160,9 +217,32 @@ const styles = StyleSheet.create({
   halfCard: {
     flex: 1,
   },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  listCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 14,
+    marginBottom: 10,
+  },
+  listTitle: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  listMeta: {
+    color: "#64748b",
+    fontSize: 13,
+  },
   secondaryButton: {
-    marginTop: "auto",
-    marginBottom: 20,
+    marginTop: 6,
     height: 50,
     borderRadius: 12,
     backgroundColor: "#e2e8f0",
