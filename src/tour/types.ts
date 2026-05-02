@@ -98,6 +98,14 @@ export type TourButtonColors = {
   secondaryText?: string;
 };
 
+export type TourPromptConfig = {
+  enabled?: boolean;
+  title?: string;
+  description?: string;
+  startButtonText?: string;
+  skipButtonText?: string;
+};
+
 export type TourLifecycle = {
   onStart?: (tour: TourStep[]) => void;
   onStepChange?: (step: TourStep, index: number) => void;

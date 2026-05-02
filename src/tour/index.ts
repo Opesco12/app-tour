@@ -22,6 +22,7 @@ export type {
   TourFailureReason,
   TourFailureStrategy,
   TourLifecycle,
+  TourPromptConfig,
   TourRouteParams,
   TourRouteRef,
   TourRegistry,

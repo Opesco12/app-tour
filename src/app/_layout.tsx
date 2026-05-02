@@ -50,6 +50,14 @@ const AppLayout = () => {
       buttonColors={{ primaryBackground: "black" }}
       tours={appTours}
       navigation={navigation}
+      prompt={{
+        enabled: false,
+        title: "Run Guided Product Tour?",
+        description:
+          "This testbed walks through routing, readiness, list reveal, and persistence behavior.",
+        startButtonText: "Start Guided Tour",
+        skipButtonText: "Skip For Now",
+      }}
       storage={{
         keyPrefix: "tour-testbed",
         getItem: AsyncStorage.getItem,

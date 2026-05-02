@@ -34,6 +34,7 @@ import {
   TourFailureReason,
   TourFailureStrategy,
   TourLifecycle,
+  TourPromptConfig,
   TourRegistry,
   TourRouteRef,
   TourStorageAdapter,
@@ -61,6 +62,7 @@ type TourProviderProps = {
   children: ReactNode;
   tours?: TourRegistry;
   storage?: TourStorageAdapter;
+  prompt?: TourPromptConfig;
   renderTooltip?: TourTooltipRenderer;
   buttonColors?: TourButtonColors;
   spotlightShape?: SpotlightShape;
@@ -165,6 +167,7 @@ export const TourProvider = ({
   children,
   tours,
   storage,
+  prompt,
   renderTooltip,
   buttonColors,
   spotlightShape = "rounded-rectangle",
@@ -189,6 +192,7 @@ export const TourProvider = ({
   const scrollContainersRef = useRef<Map<string, ScrollContainerHandle>>(new Map());
 
   const resolvedButtonColors = { ...DEFAULT_BUTTON_COLORS, ...buttonColors };
+  const resolvedPrompt = prompt ?? {};
   const safeSpotlightPadding = Math.max(0, spotlightPadding);
   const clampedOverlayOpacity = Math.max(0, Math.min(overlayOpacity, 1));
   const resolvedOverlayColor = overlayColor ?? `rgba(0,0,0,${clampedOverlayOpacity})`;
@@ -537,8 +541,14 @@ export const TourProvider = ({
       return;
     }
 
+    if (resolvedPrompt.enabled === false) {
+      setShowPrompt(false);
+      void moveToStep(0, "forward");
+      return;
+    }
+
     setShowPrompt(true);
-  }, [getTour, moveToStep]);
+  }, [getTour, moveToStep, resolvedPrompt.enabled]);
 
   const nextStep = useCallback(async () => {
     const current = activeStepIndexRef.current;
@@ -714,6 +724,7 @@ export const TourProvider = ({
         <TourPrompt
           overlayColor={resolvedOverlayColor}
           buttonColors={resolvedButtonColors}
+          prompt={resolvedPrompt}
           onSkip={() => stopTour("skip")}
           onStart={beginTour}
         />

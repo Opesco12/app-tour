@@ -1,11 +1,12 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { TourButtonColors } from "./types";
+import { TourButtonColors, TourPromptConfig } from "./types";
 
 type TourPromptProps = {
   overlayColor: string;
   buttonColors: Required<TourButtonColors>;
+  prompt?: TourPromptConfig;
   onSkip: () => void;
   onStart: () => void;
 };
@@ -13,6 +14,7 @@ type TourPromptProps = {
 export const TourPrompt = ({
   overlayColor,
   buttonColors,
+  prompt,
   onSkip,
   onStart,
 }: TourPromptProps) => {
@@ -20,22 +22,26 @@ export const TourPrompt = ({
     <View style={StyleSheet.absoluteFill}>
       <Pressable style={[styles.overlay, { backgroundColor: overlayColor }]} />
       <View style={styles.promptCard}>
-        <Text style={styles.promptTitle}>Take a quick product tour?</Text>
+        <Text style={styles.promptTitle}>{prompt?.title ?? "Take a quick product tour?"}</Text>
         <Text style={styles.promptDescription}>
-          You can skip now and start it again later anytime.
+          {prompt?.description ?? "You can skip now and start it again later anytime."}
         </Text>
         <View style={styles.actionsRow}>
           <Pressable
             style={[styles.secondaryButton, { backgroundColor: buttonColors.secondaryBackground }]}
             onPress={onSkip}
           >
-            <Text style={[styles.secondaryButtonText, { color: buttonColors.secondaryText }]}>Skip</Text>
+            <Text style={[styles.secondaryButtonText, { color: buttonColors.secondaryText }]}>
+              {prompt?.skipButtonText ?? "Skip"}
+            </Text>
           </Pressable>
           <Pressable
             style={[styles.primaryButton, { backgroundColor: buttonColors.primaryBackground }]}
             onPress={onStart}
           >
-            <Text style={[styles.primaryButtonText, { color: buttonColors.primaryText }]}>Start Tour</Text>
+            <Text style={[styles.primaryButtonText, { color: buttonColors.primaryText }]}>
+              {prompt?.startButtonText ?? "Start Tour"}
+            </Text>
           </Pressable>
         </View>
       </View>
