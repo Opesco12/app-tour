@@ -1,6 +1,6 @@
-import { TourRegistry } from "../tour";
+import { defineTours } from "../tour";
 
-export const appTours: TourRegistry = {
+export const appTours = defineTours({
   dashboard: [
     {
       id: "home.start",
@@ -131,4 +131,4 @@ export const appTours: TourRegistry = {
       scrollContainerId: "sectionlist-container",
     },
   ],
-};
+});

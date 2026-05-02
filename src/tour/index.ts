@@ -1,4 +1,5 @@
 export { TourProvider } from "./TourContext";
+export { defineTours } from "./defineTours";
 export { TourFlatList } from "./TourFlatList";
 export { TourScrollView } from "./TourScrollView";
 export { TourSectionList } from "./TourSectionList";
