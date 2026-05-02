@@ -7,7 +7,7 @@ type RowItem = { id: string; label: string };
 type RowSection = { title: string; data: RowItem[] };
 
 const SectionListScreen = () => {
-  const { startTour } = useTour();
+  const { getTour, hasTour, startTour } = useTour();
 
   const sections = useMemo<RowSection[]>(
     () => [
@@ -36,26 +36,11 @@ const SectionListScreen = () => {
 
       <Pressable
         style={styles.button}
-        onPress={() =>
-          startTour([
-            {
-              id: "section.start",
-              target: "section.0.item.2",
-              title: "SectionList Start",
-              description: "We begin near the top section.",
-              route: "/sectionlist",
-            },
-            {
-              id: "section.deep",
-              target: "section.1.item.6",
-              title: "Jump to Section Item",
-              description: "This step scrolls to section 2 item 6.",
-              route: "/sectionlist",
-              scrollToTarget: true,
-              scrollContainerId: "sectionlist-container",
-            },
-          ])
-        }
+        onPress={() => {
+          if (!hasTour("sectionlist")) return;
+          console.log("[tour] sectionlist steps", getTour("sectionlist")?.length ?? 0);
+          startTour("sectionlist");
+        }}
       >
         <Text style={styles.buttonText}>Start SectionList Tour</Text>
       </Pressable>

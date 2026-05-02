@@ -34,6 +34,7 @@ import {
   TourFailureReason,
   TourFailureStrategy,
   TourLifecycle,
+  TourRegistry,
   TourRouteRef,
   TourStartOptions,
   TourStep,
@@ -57,6 +58,7 @@ export const TourContext = createContext<TourContextValue | null>(null);
 
 type TourProviderProps = {
   children: ReactNode;
+  tours?: TourRegistry;
   renderTooltip?: TourTooltipRenderer;
   buttonColors?: TourButtonColors;
   spotlightShape?: SpotlightShape;
@@ -155,6 +157,7 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs?: number, label = 
 
 export const TourProvider = ({
   children,
+  tours,
   renderTooltip,
   buttonColors,
   spotlightShape = "rounded-rectangle",
@@ -198,8 +201,11 @@ export const TourProvider = ({
   const [targetLayout, setTargetLayout] = useState<LayoutRectangle | null>(null);
 
   const stepsRef = useRef<TourStep[]>([]);
+  const toursRef = useRef<TourRegistry>(tours ?? {});
   const activeStepIndexRef = useRef<number | null>(null);
   const pendingControllerRef = useRef<AbortController | null>(null);
+
+  toursRef.current = tours ?? {};
 
   const resolveFailureStrategy = useCallback(
     (ctx: TourFailureContext): TourFailureStrategy => {
@@ -466,8 +472,23 @@ export const TourProvider = ({
     await moveToStep(0, "forward");
   }, [lifecycleCallbacks, moveToStep]);
 
-  const startTour = useCallback((newSteps: TourStep[], options?: TourStartOptions) => {
-    if (!newSteps.length) return;
+  const hasTour = useCallback((id: string) => {
+    const tour = toursRef.current[id];
+    return Array.isArray(tour) && tour.length > 0;
+  }, []);
+
+  const getTour = useCallback((id: string) => {
+    const tour = toursRef.current[id];
+    return Array.isArray(tour) ? tour : undefined;
+  }, []);
+
+  const startTour = useCallback((stepsOrTourId: TourStep[] | string, options?: TourStartOptions) => {
+    const newSteps =
+      typeof stepsOrTourId === "string"
+        ? getTour(stepsOrTourId)
+        : stepsOrTourId;
+
+    if (!newSteps?.length) return;
 
     setSteps(newSteps);
     stepsRef.current = newSteps;
@@ -488,7 +509,7 @@ export const TourProvider = ({
     }
 
     setShowPrompt(true);
-  }, [moveToStep]);
+  }, [getTour, moveToStep]);
 
   const nextStep = useCallback(async () => {
     const current = activeStepIndexRef.current;
@@ -609,9 +630,11 @@ export const TourProvider = ({
       nextStep,
       previousStep,
       goToStep,
+      hasTour,
+      getTour,
       getState,
     }),
-    [getState, goToStep, nextStep, previousStep, startTour, stopTour],
+    [getState, getTour, goToStep, hasTour, nextStep, previousStep, startTour, stopTour],
   );
 
   return (

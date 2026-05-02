@@ -52,6 +52,8 @@ export type TourStep = {
   skippable?: boolean;
 };
 
+export type TourRegistry = Record<string, TourStep[]>;
+
 export type TourTargetHandle = {
   measureInWindow: (
     callback: (x: number, y: number, width: number, height: number) => void,
@@ -185,10 +187,12 @@ export type TourControllerState = {
 };
 
 export type TourController = {
-  startTour: (steps: TourStep[], options?: TourStartOptions) => void;
+  startTour: (stepsOrTourId: TourStep[] | string, options?: TourStartOptions) => void;
   stopTour: () => void;
   nextStep: () => Promise<void>;
   previousStep: () => Promise<void>;
   goToStep: (idOrIndex: string | number) => Promise<void>;
+  hasTour: (id: string) => boolean;
+  getTour: (id: string) => TourStep[] | undefined;
   getState: () => TourControllerState;
 };

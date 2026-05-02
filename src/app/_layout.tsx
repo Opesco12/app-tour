@@ -7,6 +7,7 @@ import {
 import { useEffect, useMemo, useRef } from "react";
 
 import { createExpoRouterAdapter, TourProvider } from "../tour";
+import { appTours } from "../tours/registry";
 
 const AppLayout = () => {
   const router = useRouter();
@@ -41,6 +42,7 @@ const AppLayout = () => {
 
   return (
     <TourProvider
+      tours={appTours}
       navigation={navigation}
       lifecycle={{
         onStart: (steps) => {

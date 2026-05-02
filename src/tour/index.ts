@@ -23,6 +23,7 @@ export type {
   TourLifecycle,
   TourRouteParams,
   TourRouteRef,
+  TourRegistry,
   TourStartOptions,
   TourStep,
   TourTooltipRenderer,

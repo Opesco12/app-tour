@@ -10,7 +10,7 @@ type FlatItem = {
 };
 
 const FlatListScreen = () => {
-  const { startTour } = useTour();
+  const { getTour, hasTour, startTour } = useTour();
 
   const data = useMemo<FlatItem[]>(
     () =>
@@ -29,35 +29,11 @@ const FlatListScreen = () => {
 
       <Pressable
         style={styles.button}
-        onPress={() =>
-          startTour([
-            {
-              id: "flat.start",
-              target: "flat.item.2",
-              title: "FlatList Start",
-              description: "We begin near the top of the list.",
-              route: "/flatlist",
-            },
-            {
-              id: "flat.item.10",
-              target: "flat.item.10",
-              title: "Auto-scroll to 10",
-              description: "This step uses container-based reveal for FlatList.",
-              route: "/flatlist",
-              scrollToTarget: true,
-              scrollContainerId: "flatlist-container",
-            },
-            {
-              id: "flat.item.14",
-              target: "flat.item.14",
-              title: "Auto-scroll to 14",
-              description: "A second deep target in the same list.",
-              route: "/flatlist",
-              scrollToTarget: true,
-              scrollContainerId: "flatlist-container",
-            },
-          ])
-        }
+        onPress={() => {
+          if (!hasTour("flatlist")) return;
+          console.log("[tour] flatlist steps", getTour("flatlist")?.length ?? 0);
+          startTour("flatlist");
+        }}
       >
         <Text style={styles.buttonText}>Start FlatList Tour</Text>
       </Pressable>
