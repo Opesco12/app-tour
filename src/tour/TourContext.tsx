@@ -36,6 +36,7 @@ import {
   TourLifecycle,
   TourRegistry,
   TourRouteRef,
+  TourStorageAdapter,
   TourStartOptions,
   TourStep,
   TourTooltipRenderProps,
@@ -59,6 +60,7 @@ export const TourContext = createContext<TourContextValue | null>(null);
 type TourProviderProps = {
   children: ReactNode;
   tours?: TourRegistry;
+  storage?: TourStorageAdapter;
   renderTooltip?: TourTooltipRenderer;
   buttonColors?: TourButtonColors;
   spotlightShape?: SpotlightShape;
@@ -155,9 +157,14 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs?: number, label = 
   ]);
 };
 
+const buildStorageKey = (prefix: string, key: string, tourId: string) => {
+  return `${prefix}:${key}:${tourId}`;
+};
+
 export const TourProvider = ({
   children,
   tours,
+  storage,
   renderTooltip,
   buttonColors,
   spotlightShape = "rounded-rectangle",
@@ -202,6 +209,7 @@ export const TourProvider = ({
 
   const stepsRef = useRef<TourStep[]>([]);
   const toursRef = useRef<TourRegistry>(tours ?? {});
+  const activeTourIdRef = useRef<string | null>(null);
   const activeStepIndexRef = useRef<number | null>(null);
   const pendingControllerRef = useRef<AbortController | null>(null);
 
@@ -217,6 +225,7 @@ export const TourProvider = ({
 
   const stopTour = useCallback(
     (reason: "stop" | "skip" | "finish" | "internal" = "stop") => {
+      const activeTourId = activeTourIdRef.current;
       pendingControllerRef.current?.abort();
       pendingControllerRef.current = null;
 
@@ -224,14 +233,26 @@ export const TourProvider = ({
       if (reason === "skip") lifecycleCallbacks.onSkip?.();
       if (reason === "stop") lifecycleCallbacks.onStop?.();
 
+      if (storage?.keyPrefix && activeTourId) {
+        const seenKey = buildStorageKey(storage.keyPrefix, "seen", activeTourId);
+        const lastStepKey = buildStorageKey(storage.keyPrefix, "last-step-index", activeTourId);
+        if (reason === "finish" || reason === "skip") {
+          void Promise.resolve(storage.setItem(seenKey, "true")).catch(() => undefined);
+          void Promise.resolve(storage.removeItem(lastStepKey)).catch(() => undefined);
+        } else if (reason === "stop") {
+          void Promise.resolve(storage.removeItem(lastStepKey)).catch(() => undefined);
+        }
+      }
+
       setActiveStepIndex(null);
       activeStepIndexRef.current = null;
+      activeTourIdRef.current = null;
       setTargetLayout(null);
       setSteps([]);
       stepsRef.current = [];
       setShowPrompt(false);
     },
-    [lifecycleCallbacks],
+    [lifecycleCallbacks, storage],
   );
 
   const waitForTargetRegistration = useCallback(
@@ -392,6 +413,11 @@ export const TourProvider = ({
         setTargetLayout(layout);
         setActiveStepIndex(index);
         activeStepIndexRef.current = index;
+        const activeTourId = activeTourIdRef.current;
+        if (storage?.keyPrefix && activeTourId) {
+          const lastStepKey = buildStorageKey(storage.keyPrefix, "last-step-index", activeTourId);
+          void Promise.resolve(storage.setItem(lastStepKey, String(index))).catch(() => undefined);
+        }
         lifecycleCallbacks.onStepChange?.(step, index);
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -460,6 +486,7 @@ export const TourProvider = ({
       lifecycleCallbacks,
       maybeNavigateToStepRoute,
       resolveFailureStrategy,
+      storage,
       stopTour,
       waitForReadiness,
       waitForTargetRegistration,
@@ -483,6 +510,7 @@ export const TourProvider = ({
   }, []);
 
   const startTour = useCallback((stepsOrTourId: TourStep[] | string, options?: TourStartOptions) => {
+    const activeTourId = typeof stepsOrTourId === "string" ? stepsOrTourId : null;
     const newSteps =
       typeof stepsOrTourId === "string"
         ? getTour(stepsOrTourId)
@@ -490,6 +518,7 @@ export const TourProvider = ({
 
     if (!newSteps?.length) return;
 
+    activeTourIdRef.current = activeTourId;
     setSteps(newSteps);
     stepsRef.current = newSteps;
     setActiveStepIndex(null);
@@ -559,6 +588,31 @@ export const TourProvider = ({
       activeStep: currentStep,
     };
   }, [showPrompt]);
+
+  const isTourSeen = useCallback(async (id: string) => {
+    if (!storage?.keyPrefix) return false;
+    try {
+      const key = buildStorageKey(storage.keyPrefix, "seen", id);
+      const value = await Promise.resolve(storage.getItem(key));
+      return value === "true";
+    } catch {
+      return false;
+    }
+  }, [storage]);
+
+  const markTourSeen = useCallback(async (id: string) => {
+    if (!storage?.keyPrefix) return;
+    const key = buildStorageKey(storage.keyPrefix, "seen", id);
+    await Promise.resolve(storage.setItem(key, "true"));
+  }, [storage]);
+
+  const clearTourSeen = useCallback(async (id: string) => {
+    if (!storage?.keyPrefix) return;
+    const seenKey = buildStorageKey(storage.keyPrefix, "seen", id);
+    const lastStepKey = buildStorageKey(storage.keyPrefix, "last-step-index", id);
+    await Promise.resolve(storage.removeItem(seenKey));
+    await Promise.resolve(storage.removeItem(lastStepKey));
+  }, [storage]);
 
   const activeStep =
     activeStepIndex !== null && steps[activeStepIndex] ? steps[activeStepIndex] : null;
@@ -632,9 +686,24 @@ export const TourProvider = ({
       goToStep,
       hasTour,
       getTour,
+      isTourSeen,
+      markTourSeen,
+      clearTourSeen,
       getState,
     }),
-    [getState, getTour, goToStep, hasTour, nextStep, previousStep, startTour, stopTour],
+    [
+      clearTourSeen,
+      getState,
+      getTour,
+      goToStep,
+      hasTour,
+      isTourSeen,
+      markTourSeen,
+      nextStep,
+      previousStep,
+      startTour,
+      stopTour,
+    ],
   );
 
   return (

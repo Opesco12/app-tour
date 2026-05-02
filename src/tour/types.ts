@@ -54,6 +54,13 @@ export type TourStep = {
 
 export type TourRegistry = Record<string, TourStep[]>;
 
+export type TourStorageAdapter = {
+  keyPrefix: string;
+  getItem: (key: string) => string | null | Promise<string | null>;
+  setItem: (key: string, value: string) => void | Promise<void>;
+  removeItem: (key: string) => void | Promise<void>;
+};
+
 export type TourTargetHandle = {
   measureInWindow: (
     callback: (x: number, y: number, width: number, height: number) => void,
@@ -194,5 +201,8 @@ export type TourController = {
   goToStep: (idOrIndex: string | number) => Promise<void>;
   hasTour: (id: string) => boolean;
   getTour: (id: string) => TourStep[] | undefined;
+  isTourSeen: (id: string) => Promise<boolean>;
+  markTourSeen: (id: string) => Promise<void>;
+  clearTourSeen: (id: string) => Promise<void>;
   getState: () => TourControllerState;
 };

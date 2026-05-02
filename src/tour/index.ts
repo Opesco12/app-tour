@@ -25,6 +25,7 @@ export type {
   TourRouteParams,
   TourRouteRef,
   TourRegistry,
+  TourStorageAdapter,
   TourStartOptions,
   TourStep,
   TourTooltipRenderer,
