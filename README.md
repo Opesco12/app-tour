@@ -12,6 +12,7 @@ This project includes both:
 - Named tours via registry (`defineTours` + `tours` prop on `TourProvider`)
 - Inline tours (`startTour([...])`) and named tours (`startTour("id")`)
 - Prompt before tour start
+- Prompt can be disabled globally or customized (title, description, button labels)
 - Cross-route navigation steps (Expo Router adapter)
 - Navigation modes: `push`, `replace`, `back`
 - Step readiness gates (`delayMs`, `isReady`, `waitFor`, timeout)
@@ -21,7 +22,6 @@ This project includes both:
   - `ScrollView` (`TourScrollView`)
   - `FlatList` (`TourFlatList`)
   - `SectionList` (`TourSectionList`)
-- Upward and downward off-screen reveal correction for lists
 - Lifecycle hooks and failure callbacks
 - Failure strategies (`stop`, `skip`, `retry`)
 - Pluggable storage adapter (AsyncStorage, MMKV wrapper, custom storage, etc.)
@@ -123,6 +123,13 @@ export default function RootLayout() {
     <TourProvider
       tours={appTours}
       navigation={navigation}
+      prompt={{
+        enabled: true,
+        title: "Run Guided Product Tour?",
+        description: "We will walk through key screens and interactions.",
+        startButtonText: "Start Guided Tour",
+        skipButtonText: "Skip For Now",
+      }}
       storage={{
         keyPrefix: "tour",
         getItem: AsyncStorage.getItem,
@@ -135,6 +142,40 @@ export default function RootLayout() {
   );
 }
 ```
+
+## Prompt Configuration
+
+Use the `prompt` prop on `TourProvider` to control prompt behavior globally:
+
+```tsx
+<TourProvider
+  prompt={{
+    enabled: true,
+    title: "Run Guided Product Tour?",
+    description: "This tour highlights the most important parts of the app.",
+    startButtonText: "Begin",
+    skipButtonText: "Not now",
+  }}
+>
+```
+
+To disable prompt globally:
+
+```tsx
+<TourProvider prompt={{ enabled: false }}>...</TourProvider>
+```
+
+Per-start override is still available:
+
+```ts
+startTour("quick-check", { suppressPrompt: true });
+```
+
+Precedence:
+
+- `suppressPrompt: true` on `startTour` skips prompt for that call.
+- Otherwise, provider-level `prompt.enabled` decides whether prompt appears.
+- If prompt is shown and text fields are omitted, defaults are used.
 
 ### 2) Register target elements
 
@@ -374,30 +415,3 @@ Failure reasons include:
 - Nested Settings stack:
   - `/settings`
   - `/settings/advanced`
-
-Suggested tours to run:
-
-- `all-features`
-- `quick-check`
-- `flatlist-only`
-- `sectionlist-only`
-- `nested-lab`
-- `settings-only`
-
-## Run
-
-```bash
-npm install
-npm run start
-```
-
-Lint:
-
-```bash
-npm run lint
-```
-
-## Notes
-
-- Current lint output includes pre-existing hook dependency warnings in `TourContext.tsx` (not runtime blockers).
-- The testbed intentionally includes verbose lifecycle logs to make engine behavior easy to inspect.
