@@ -1,5 +1,13 @@
-import React, { PropsWithChildren, useEffect, useMemo, useRef } from "react";
-import { SectionList, SectionListData, SectionListProps, View } from "react-native";
+import React, { PropsWithChildren, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  LayoutRectangle,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  SectionList,
+  SectionListData,
+  SectionListProps,
+  View,
+} from "react-native";
 
 import { TourStep } from "./types";
 import { useTour } from "./useTour";
@@ -41,6 +49,17 @@ const delay = (ms: number, signal: AbortSignal) => {
   });
 };
 
+const measureInWindow = (node: {
+  measureInWindow: (
+    callback: (x: number, y: number, width: number, height: number) => void,
+  ) => void;
+}) =>
+  new Promise<LayoutRectangle>((resolve) => {
+    node.measureInWindow((x, y, width, height) => {
+      resolve({ x, y, width, height });
+    });
+  });
+
 const findLocationByTarget = <ItemT, SectionT>(
   step: TourStep,
   sections: readonly SectionListData<ItemT, SectionT>[] | null | undefined,
@@ -77,13 +96,40 @@ export const TourSectionList = <ItemT, SectionT = DefaultSectionT>({
   revealSettleMs = 300,
   getTourTargetId,
   sections,
+  onScroll,
+  onScrollToIndexFailed,
+  scrollEventThrottle = 16,
   ...rest
 }: TourSectionListProps<ItemT, SectionT>) => {
   const { registerScrollContainer, unregisterScrollContainer } = useTour();
   const listRef = useRef<SectionList<ItemT, SectionT>>(null);
   const containerRef = useRef<View>(null);
+  const offsetYRef = useRef(0);
+  const failedScrollInfoRef = useRef<{
+    index: number;
+    averageItemLength: number;
+  } | null>(null);
 
   const stableSections = useMemo(() => sections ?? [], [sections]);
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      offsetYRef.current = event.nativeEvent.contentOffset.y;
+      onScroll?.(event);
+    },
+    [onScroll],
+  );
+
+  const handleScrollToIndexFailed = useCallback<NonNullable<SectionListProps<ItemT, SectionT>["onScrollToIndexFailed"]>>(
+    (info) => {
+      failedScrollInfoRef.current = {
+        index: info.index,
+        averageItemLength: info.averageItemLength,
+      };
+      onScrollToIndexFailed?.(info);
+    },
+    [onScrollToIndexFailed],
+  );
 
   useEffect(() => {
     registerScrollContainer(id, {
@@ -95,6 +141,7 @@ export const TourSectionList = <ItemT, SectionT = DefaultSectionT>({
         const location = findLocationByTarget(step, stableSections, getTourTargetId);
         if (!location) return;
 
+        failedScrollInfoRef.current = null;
         list.scrollToLocation({
           sectionIndex: location.sectionIndex,
           itemIndex: location.itemIndex,
@@ -103,6 +150,46 @@ export const TourSectionList = <ItemT, SectionT = DefaultSectionT>({
         });
 
         await delay(revealSettleMs, signal);
+
+        const failed = failedScrollInfoRef.current;
+        if (failed) {
+          const fallbackOffset = Math.max(0, failed.averageItemLength * failed.index);
+          (list as unknown as { scrollToOffset: (args: { offset: number; animated: boolean }) => void })
+            .scrollToOffset({ offset: fallbackOffset, animated: true });
+          await delay(revealSettleMs, signal);
+          list.scrollToLocation({
+            sectionIndex: location.sectionIndex,
+            itemIndex: location.itemIndex,
+            animated: true,
+            viewPosition: 0.5,
+          });
+          await delay(revealSettleMs, signal);
+        }
+
+        const targetNode = _targetRef.current;
+        if (!targetNode) return;
+        const containerLayout = await measureInWindow(container);
+        const targetLayout = await measureInWindow(targetNode);
+        const currentOffsetY = offsetYRef.current;
+        const targetTop = targetLayout.y - containerLayout.y + currentOffsetY;
+        const targetBottom = targetTop + targetLayout.height;
+        const visibleTop = currentOffsetY;
+        const visibleBottom = currentOffsetY + containerLayout.height;
+
+        let needsCorrection = false;
+        if (targetTop < visibleTop + 20 || targetBottom > visibleBottom - 20) {
+          needsCorrection = true;
+        }
+
+        if (needsCorrection) {
+          list.scrollToLocation({
+            sectionIndex: location.sectionIndex,
+            itemIndex: location.itemIndex,
+            animated: true,
+            viewPosition: 0.5,
+          });
+          await delay(revealSettleMs, signal);
+        }
       },
     });
 
@@ -118,7 +205,14 @@ export const TourSectionList = <ItemT, SectionT = DefaultSectionT>({
 
   return (
     <View ref={containerRef} collapsable={false} style={{ flex: 1 }}>
-      <SectionList ref={listRef} sections={sections} {...rest} />
+      <SectionList
+        ref={listRef}
+        sections={sections}
+        onScroll={handleScroll}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
+        scrollEventThrottle={scrollEventThrottle}
+        {...rest}
+      />
     </View>
   );
 };

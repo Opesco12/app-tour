@@ -1,12 +1,17 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  Tabs,
+  Stack,
   useLocalSearchParams,
   usePathname,
   useRouter,
 } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 
-import { createExpoRouterAdapter, TourProvider } from "../tour";
+import {
+  createExpoRouterAdapter,
+  TourFailureContext,
+  TourProvider,
+} from "../tour";
 import { appTours } from "../tours/registry";
 
 const AppLayout = () => {
@@ -42,8 +47,26 @@ const AppLayout = () => {
 
   return (
     <TourProvider
+      buttonColors={{ primaryBackground: "black" }}
       tours={appTours}
       navigation={navigation}
+      storage={{
+        keyPrefix: "tour-testbed",
+        getItem: AsyncStorage.getItem,
+        setItem: AsyncStorage.setItem,
+        removeItem: AsyncStorage.removeItem,
+      }}
+      engine={{
+        defaultReadiness: {
+          timeoutMs: 12_000,
+          pollIntervalMs: 75,
+        },
+        onFailure: (ctx: TourFailureContext) => {
+          if (ctx.reason === "target_not_found") return "retry";
+          if (ctx.reason === "scroll_container_not_found") return "skip";
+          return "stop";
+        },
+      }}
       lifecycle={{
         onStart: (steps) => {
           console.log("[tour] start", {
@@ -91,18 +114,14 @@ const AppLayout = () => {
             error: String(ctx.error),
           });
         },
-        onStop: () => {
-          console.log("[tour] stop");
-        },
-        onSkip: () => {
-          console.log("[tour] skip");
-        },
-        onFinish: () => {
-          console.log("[tour] finish");
-        },
+        onStop: () => console.log("[tour] stop"),
+        onSkip: () => console.log("[tour] skip"),
+        onFinish: () => console.log("[tour] finish"),
       }}
     >
-      <Tabs screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
     </TourProvider>
   );
 };
