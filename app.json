@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mynotes",
-
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -42,7 +41,9 @@
         }
       ],
       "@bacons/apple-targets",
-      "expo-build-properties"
+      "expo-build-properties",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

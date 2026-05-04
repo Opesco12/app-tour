@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { LayoutRectangle, Pressable, StyleSheet, View } from "react-native";
+import { LayoutRectangle, Platform, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import {
@@ -103,7 +103,15 @@ const measureTarget = (ref: RefObject<View | null>) => {
     }
 
     ref.current.measureInWindow((x, y, width, height) => {
-      resolve({ x, y, width, height });
+      const androidStatusBarOffset =
+        Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0;
+
+      resolve({
+        x,
+        y: y + androidStatusBarOffset,
+        width,
+        height,
+      });
     });
   });
 };
