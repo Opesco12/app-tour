@@ -106,15 +106,11 @@ export default function RootLayout() {
   const navigation = useMemo(
     () =>
       createExpoRouterAdapter({
-        push: (href) => router.push(href as never),
-        replace: (href) => router.replace(href as never),
+        push: (href) => router.push(href),
+        replace: (href) => router.replace(href),
         back: () => router.back(),
         getPathname: () => pathnameRef.current,
-        getParams: () =>
-          paramsRef.current as Record<
-            string,
-            string | number | boolean | null | undefined
-          >,
+        getParams: () => paramsRef.current,
       }),
     [router],
   );
