@@ -15,10 +15,10 @@ const TabsLayout = () => {
               ? "home"
               : route.name === "flat"
                 ? "list"
-                : route.name === "section"
-                  ? "grid"
-                  : route.name === "lab"
+                : route.name === "lab"
                     ? "flask"
+                    : route.name === "package-test"
+                      ? "cube"
                     : "settings";
           return <Ionicons name={name} size={size} color={color} />;
         },
@@ -26,8 +26,8 @@ const TabsLayout = () => {
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="flat" options={{ title: "FlatList" }} />
-      <Tabs.Screen name="section" options={{ title: "SectionList" }} />
       <Tabs.Screen name="lab" options={{ title: "Lab" }} />
+      <Tabs.Screen name="package-test" options={{ title: "Package Test" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
     </Tabs>
   );
